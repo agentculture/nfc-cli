@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-11-08
+
+### Added
+
+- `tag magic-check`: non-destructively report whether a MIFARE Classic tag's UID block (block 0) can be rewritten, by writing block 0's own bytes back to itself (a genuine chip refuses; a UID-rewritable "CUID"/gen2 card accepts). Exposed on the CLI, as the MCP tool `tag_magic-check`, and at `POST /api/tag/magic-check`. First step of the UID-clone capability; the guarded block-0 write is tracked in issue #2.
+
+### Fixed
+
+- Classic writes now choose the write key from the sector's access bits, so NFC-Forum-formatted sectors (which reserve data writes for key B) are written with key B and never refused. A refused write that halts the chip (the ACR1552 then reports the card mute) is recovered by a retried power-cycle instead of aborting. Found during live validation on real hardware.
+- `tag restore --resume` no longer silently skips trailer/block-0 writes that were pending from an interrupted `--include-trailers` restore; it refuses with the exact command to finish them.
+
 ## [0.11.0] - 2026-11-08
 
 ### Added
