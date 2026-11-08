@@ -99,7 +99,7 @@ test.describe("x3 scenario (blank MIFARE Classic 1K)", () => {
     await expect(page.getByRole("status").filter({ hasText: "Wrote 19 blocks" })).toBeVisible();
     const applied = calls.find((c) => c.body.apply === true)!;
     expect(applied).toMatchObject({ path: "/api/ndef/format", body: { include_trailers: true, apply: true } });
-    expect(Object.keys(applied.body).sort()).toEqual(["apply", "include_trailers"]);
+    expect(Object.keys(applied.body).sort()).toEqual(["apply", "expect_uid", "include_trailers"]);
     // The tag is re-read and NDEF now reads as an empty message.
     await expect(page.getByText("The tag is NDEF formatted and holds no message yet.")).toBeVisible();
     expect(JSON.stringify(await readAgentState(page))).not.toContain(X3_KEY);
