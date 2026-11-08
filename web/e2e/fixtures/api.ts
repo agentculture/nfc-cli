@@ -320,6 +320,17 @@ export const scenarios = {
 export async function mockApi(page: Page, scenario: ApiScenario): Promise<Captured[]> {
   const captured: Captured[] = [];
   const verbs = scenario.verbs?.() ?? {};
+  // The real card-event stream logically follows the first /api/state poll (the UI
+  // fetches state, then subscribes). Order the mock the same way so a removal event
+  // never races ahead of the initial state the client just loaded — otherwise, under
+  // heavy parallel load, the client can process "removed" before it knows the UID.
+  let stateServed = false;
+  const waitForState = async () => {
+    for (let i = 0; i < 400 && !stateServed; i++) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    await new Promise((r) => setTimeout(r, 50)); // let the client apply the state first
+  };
   await page.route("**/api/**", async (route: Route) => {
     const req = route.request();
     const url = new URL(req.url());
@@ -329,9 +340,11 @@ export async function mockApi(page: Page, scenario: ApiScenario): Promise<Captur
         contentType: "application/json",
         body: JSON.stringify(scenario.state),
       });
+      stateServed = true;
       return;
     }
     if (url.pathname === "/api/events") {
+      await waitForState();
       // retry: keeps EventSource from reconnecting in a tight loop once the body ends.
       const events = (scenario.events ?? [])
         .map((e) => `event: card\ndata: ${JSON.stringify(e)}\n\n`)
