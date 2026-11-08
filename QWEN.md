@@ -9,11 +9,11 @@ Qwen Code session.
 
 ## What this project is
 
-`nfc-cli` is a **clonable template for AgentCulture mesh agents**.
-It is a working, minimal example of the sibling pattern every Culture agent
-follows: an agent-first CLI, a mesh identity, the canonical skill kit, and a
-buildable/deployable package baseline. Clone it, rename the package, edit
-`culture.yaml`, and you have a new agent that `steward doctor` recognizes.
+`nfc-cli` is an AgentCulture mesh agent whose purpose is to **control NFC
+reader-writers via USB**. It was scaffolded from `culture-agent-template`, and
+**no NFC functionality exists yet** — today the repo holds only the template
+baseline: an agent-first CLI (identity/introspection verbs), a mesh identity,
+the canonical skill kit, and a buildable/deployable package.
 
 It is a sibling to [`guildmaster`](https://github.com/agentculture/guildmaster)
 (the **skills supplier**), [`steward`](https://github.com/agentculture/steward)
@@ -45,40 +45,19 @@ agents:
 ```
 
 `backend: claude` fixes the *mesh resident* prompt file to `CLAUDE.md` — the
-mesh runtime reads that file, not this one. A Qwen Code session working in a
-clone of this repo is a separate, local tool session; it reads `QWEN.md`
+mesh runtime reads that file, not this one. A Qwen Code session working in
+this repo is a separate, local tool session; it reads `QWEN.md`
 regardless of what `culture.yaml` declares, and running Qwen Code here neither
 requires nor changes that declaration. The declaration and the resident prompt
 together satisfy the two invariants `steward doctor` verifies:
 **prompt-file-present** and **backend-consistency** (`claude` ↔ `CLAUDE.md`).
 
-## Cloning this template (re-initialization)
-
-When you start a new agent from this template:
-
-1. Rename the package directory `nfc_cli/` → `<your_module>/`
-   and replace `nfc_cli` (module) / `nfc-cli`
-   (CLI and dist name) throughout `pyproject.toml`, the package, `tests/`,
-   `sonar-project.properties`, and `README.md`. The name is hard-coded in
-   ~100 places, so list every occurrence first rather than renaming by hand
-   (`git grep` is portable and skips `.git` / untracked `__pycache__`):
-
-   ```bash
-   git grep -nF -e 'nfc-cli' -e 'nfc_cli'
-   ```
-
-2. Set your `suffix` (and `backend`) in `culture.yaml`. `whoami` and `doctor`
-   then reflect the new identity with no further code change.
-3. Rewrite `CLAUDE.md` (and this file, and the other two harness files) to
-   describe your agent.
-4. Re-vendor the skill kit you need from guildmaster (see
-   `docs/skill-sources.md`) — keep only the skills your agent uses.
-
 ## The CLI
 
 The CLI is cited (cite-don't-import) from teken's `python-cli` reference
-(`teken cli cite`), so the runtime package has **no third-party dependencies**;
-`teken` (a.k.a. `afi-cli`) is a dev dependency only. Agent-first verbs:
+(`teken cli cite`), so the runtime package currently has **no third-party
+dependencies** (NFC support will likely add the first one); `teken` (a.k.a.
+`afi-cli`) is a dev dependency only. Agent-first verbs:
 
 - `nfc-cli whoami` — identity from `culture.yaml`.
 - `nfc-cli learn` — structured self-teaching prompt.
@@ -89,8 +68,11 @@ The CLI is cited (cite-don't-import) from teken's `python-cli` reference
 
 Conventions: every command supports `--json`; results go to stdout, errors and
 diagnostics to stderr (never mixed); exit codes are `0` success, `1` user
-error, `2` environment error, `3+` reserved. The agent-first rubric is
-enforced in CI by `teken cli doctor . --strict`.
+error, `2` environment error, `3+` reserved. The generic exception wrapper
+reports everything as exit `1`, so hardware/daemon failures (no reader, PC/SC
+service down) must be caught in the handler and raised as `CliError` with
+`EXIT_ENV_ERROR`. The agent-first rubric is enforced in CI by
+`teken cli doctor . --strict`.
 
 ## Skills
 
@@ -124,6 +106,6 @@ culture.yaml              mesh identity (suffix + backend)
 This file describes the repository **as it exists on disk today**. When you
 edit, keep claims grounded in checked-in reality; if a section drifts ahead of
 reality, mark it `(planned)` or move it under a `## Roadmap` heading. For the
-full set of workflow conventions (worktree layout, memory discipline,
-`ask-colleague` usage), see [`CLAUDE.md`](CLAUDE.md) — those conventions apply
-to work in this repo regardless of which harness is doing it.
+fullest write-up (every lint/CI command, the CLI contract, `doctor` checks,
+observed hardware), see [`CLAUDE.md`](CLAUDE.md) — its conventions apply to
+work in this repo regardless of which harness is doing it.

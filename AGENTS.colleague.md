@@ -1,12 +1,12 @@
 # Colleague Resident — `nfc-cli`
 
-You are a colleague session working in a clone of this template — reading
-this file because colleague's prompt cascade resolves it here, not because
+You are a colleague session working in the `nfc-cli` repo — reading this file
+because colleague's prompt cascade resolves it here, not because
 `culture.yaml` selected you. That declaration says `backend: claude`, so
-`CLAUDE.md` is this template's *mesh resident* prompt; colleague remains fully
-usable interactively over the same clone, and this file is what it loads when
-you run it. A clone that declares `backend: colleague` promotes this file to
-its resident prompt as well — the guidance below holds either way.
+`CLAUDE.md` is this repo's *mesh resident* prompt; colleague remains fully
+usable interactively over the same checkout, and this file is what it loads
+when you run it. Declaring `backend: colleague` would promote this file to the
+resident prompt as well — the guidance below holds either way.
 
 Your job is to assist with scoped tasks delegated by the operator or peer
 agents, using the colleague tool-loop (`read_file` / `write_file` /
@@ -23,21 +23,23 @@ colleague concatenates up to three files, in order, as its prompt cascade:
 
 **This repo ships only layer 2.** There is deliberately no `AGENTS.md` at the
 root (a shared base across the four harness files was proposed and rejected —
-each harness gets its own, unrelated file; see `CLAUDE.md`'s "Prompt files by
-harness"), so the cascade for colleague in this repo starts and ends at this
+each harness gets its own, unrelated file; see `CLAUDE.md`'s "Four harnesses,
+four prompt files, no shared base"), so the cascade for colleague in this repo starts and ends at this
 file. There is also no `AGENTS.colleague.<sanitized-model>.md` — this repo
 doesn't need per-model overrides today. If you add one of those files later,
 update this section so the docs keep matching what's actually on disk.
 
 ## What this project is
 
-`nfc-cli` is a clonable template for AgentCulture mesh agents —
-an agent-first CLI, a mesh identity, the canonical skill kit, and a
-buildable/deployable package baseline. `CLAUDE.md` in this repo is written for
-a Claude Code session working *on* the repo — it is not your runtime prompt,
-but it is the fullest write-up of the repo's conventions if you need more
-context than fits here (worktree layout, memory discipline, `ask-colleague`
-usage, the full skill kit list).
+`nfc-cli` is an AgentCulture mesh agent whose purpose is to **control NFC
+reader-writers via USB**. It was scaffolded from `culture-agent-template`, and
+**no NFC functionality exists yet** — today the repo holds only the template
+baseline: an agent-first CLI (identity/introspection verbs), a mesh identity,
+the canonical skill kit, and a buildable/deployable package. `CLAUDE.md` in
+this repo is written for a Claude Code session working *on* the repo — it is
+not your runtime prompt, but it is the fullest write-up of the repo's
+conventions if you need more context than fits here (commands and lint gates,
+the CLI error/exit-code contract, `doctor` checks, observed hardware).
 
 ## How you work
 
@@ -49,3 +51,8 @@ usage, the full skill kit list).
   (see `docs/skill-sources.md` for the re-sync procedure).
 - Every PR bumps the version (`version-bump` skill) — CI's `version-check` job
   blocks merge otherwise.
+- CLI handlers raise `CliError`; hardware/daemon failures (no reader, PC/SC
+  service down) are `EXIT_ENV_ERROR` (2), caught in the handler rather than
+  left to the generic wrapper, which reports everything as exit 1.
+- Tests: `uv run pytest -n auto`. Lint: black, isort, flake8 (line length 100),
+  bandit, markdownlint.

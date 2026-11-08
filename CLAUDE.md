@@ -12,8 +12,8 @@ kit, and a build/deploy pipeline. **No NFC functionality exists yet** — no
 reader/tag code, no hardware dependency. Several strings still describe the
 repo as "a clonable template" (the parser `description` in
 `nfc_cli/cli/__init__.py`, `_ROOT` in `nfc_cli/explain/catalog.py`, the
-other harness prompt files); update them as real NFC features land, and
-update this section once NFC code exists.
+`README.md` feature list); update them as real NFC features land, and update
+this section once NFC code exists.
 
 ### Hardware context (snapshot from 2026-11-08 — re-verify before relying on it)
 
@@ -42,6 +42,7 @@ uv run black --check nfc_cli tests
 uv run isort --check-only nfc_cli tests
 uv run flake8 nfc_cli tests
 uv run bandit -c pyproject.toml -r nfc_cli
+npm install -g markdownlint-cli2@0.21.0   # not in the uv dev group; CI pins this version
 markdownlint-cli2 "**/*.md" "#node_modules" "#.local" "#.claude/skills" "#.teken"
 python3 scripts/scan-secrets.py           # committed secrets / non-localhost URLs in JSON config
 uv run teken cli doctor . --strict        # agent-first rubric gate
@@ -66,8 +67,12 @@ in CI:
   `_build_parser()` next to the existing ones.
 - Handlers return `None`/`int` or raise `CliError(code, message, remediation)`
   (`cli/_errors.py`). `_dispatch` wraps any other exception into a `CliError`
-  so no traceback ever leaks. Argparse errors are routed the same way via
-  `_CliArgumentParser.error()`.
+  so no traceback ever leaks — but that wrapper always uses `EXIT_USER_ERROR`
+  (1) with a "file a bug" hint. Hardware and daemon failures (no reader, PC/SC
+  service down, card removed) must therefore be caught in the handler and
+  re-raised as `CliError(EXIT_ENV_ERROR, ...)` with a real remediation; don't
+  let library exceptions reach `_dispatch`. Argparse errors are routed through
+  the same format via `_CliArgumentParser.error()`.
 - Output goes through `cli/_output.py`: results → stdout, errors/diagnostics →
   stderr, never mixed. Text-mode errors render `error: …` + `hint: …` (the
   `hint:` line is required by the rubric).
@@ -81,16 +86,31 @@ in CI:
 
 ### Mesh identity and `doctor`
 
-`culture.yaml` declares `suffix: nfc-cli`, `backend: claude`, plus a `gate`
-section (setup/test argv lists used by external tooling). `whoami` reads it by
-walking up from the module file (not CWD), parsed without a YAML library.
-`doctor` (`nfc_cli/cli/_commands/doctor.py`, `_diagnose()`) reports:
-`prompt_file_present` (`backend: claude` requires this `CLAUDE.md`),
-`backend_consistency` (fails when the declared backend is unknown),
-`harness_prompts` (info only — other harness files never substitute for the
-resident prompt), and `skills_present` (warning when `.claude/skills/` is
-missing or empty). The
-harness smoke probe also asks whether `CLAUDE.md` describes the project as
+`culture.yaml` holds an `agents:` list whose first entry carries the identity,
+plus a top-level `gate` section (setup/test argv lists used by external
+tooling):
+
+```yaml
+agents:
+- suffix: nfc-cli
+  backend: claude
+```
+
+`whoami` finds the file by walking up from the module file (not CWD) and parses
+it without a YAML library: it only reads `backend:`/`model:` lines that follow
+the first `- suffix:` line, so keep that shape. `doctor`
+(`nfc_cli/cli/_commands/doctor.py`, `_diagnose()`) looks up the declared
+backend's single **resident** prompt file (`_RESIDENT_PROMPT`: `claude` →
+`CLAUDE.md`, `colleague` → `AGENTS.colleague.md`, …) and reports:
+
+- `prompt_file_present` — error if that resident file is missing (for this repo,
+  `CLAUDE.md`). Switching `backend` changes which file is required.
+- `backend_consistency` — emitted only when the backend is not recognized.
+- `harness_prompts` — info only; other prompt files recognized under the same
+  backend never substitute for the resident one.
+- `skills_present` — warning when `.claude/skills/` is missing or empty.
+
+The harness smoke probe also asks whether `CLAUDE.md` describes the project as
 nfc-cli, so keep that name prominent here.
 
 ### Four harnesses, four prompt files, no shared base
@@ -103,9 +123,8 @@ nfc-cli, so keep that name prominent here.
 | Qwen Code | `QWEN.md` |
 
 There is intentionally **no `AGENTS.md`**. When repo conventions or purpose
-change, update all four so they don't drift. **Known drift (pending
-follow-up):** the other harnesses' prompt files still describe the repo as a generic
-template rather than an NFC tool. `.qwen/skills`, `.pi/skills`, and
+change, update all four so they don't drift — each states the same project
+purpose and current status. `.qwen/skills`, `.pi/skills`, and
 `.colleague/skills` are symlinks onto `.claude/skills`. `culture.yaml`'s
 `backend` selects only the mesh resident, never which harness can run
 interactively (see `docs/harness-selection.md`, `docs/automation-contract.md`).
