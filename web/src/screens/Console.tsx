@@ -72,6 +72,7 @@ export default function Console() {
     setInfo(null);
     setBlocks(null);
     setRevealed(null);
+    setRevealing(false);
     setReadError(null);
     setActionError(null);
     setPending(null);
@@ -153,12 +154,14 @@ export default function Console() {
   );
 
   const revealKeys = useCallback(async (unit: Unit) => {
+    const forUid = loadedUid.current; // the tag we are revealing keys for
     setRevealing(true);
     const res = await callVerb<{ blocks: Record<string, string> }>("tag", "read", {
       block: unit.blocks[0],
       count: unit.blocks.length,
       include_keys: true,
     });
+    if (loadedUid.current !== forUid) return; // tag swapped mid-read: drop this response
     setRevealing(false);
     if (res.ok) setRevealed(res.result.blocks);
     else setActionError(res.error);

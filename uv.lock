@@ -537,7 +537,7 @@ wheels = [
 
 [[package]]
 name = "nfc-cli"
-version = "0.12.2"
+version = "0.12.3"
 source = { editable = "." }
 
 [package.optional-dependencies]

@@ -13,6 +13,17 @@ from pathlib import Path
 KEY_MASK = "**"
 FAMILY_CLASSIC = "classic"
 FAMILY_ULTRALIGHT = "ultralight"
+FAMILY_ISO15693 = "iso15693"
+
+# Bytes per block/page in a binary dump, by (simplified) family. Type 2 (Ultralight/NTAG)
+# and ISO 15693 use 4-byte pages; MIFARE Classic uses 16-byte blocks.
+_SMALL_PAGE = ("ultralight", "iso15693")
+
+
+def _block_size(family: str) -> int:
+    return 4 if family in _SMALL_PAGE else BLOCK_SIZE
+
+
 BLOCK_SIZE = 16
 
 
@@ -100,9 +111,10 @@ class Dump:
     def from_bytes(
         cls, raw: bytes, atr: str = "", uid: str = "", family: str = FAMILY_CLASSIC
     ) -> "Dump":
-        if len(raw) % BLOCK_SIZE:
-            raise ValueError("binary dump length must be a multiple of 16")
-        blocks = {i: raw[i * 16 : i * 16 + 16].hex() for i in range(len(raw) // 16)}
+        size = _block_size(family)
+        if len(raw) % size:
+            raise ValueError(f"binary dump length must be a multiple of {size} for {family}")
+        blocks = {i: raw[i * size : i * size + size].hex() for i in range(len(raw) // size)}
         return cls(atr, uid, family, blocks)
 
     def save(self, path: str | os.PathLike, fmt: str = "json", include_keys: bool = False) -> Path:
@@ -125,17 +137,29 @@ class Dump:
 
 
 def _write_private(path: Path, payload: bytes) -> None:
-    """Write ``payload`` with mode 0600 regardless of umask."""
+    """Atomically write ``payload`` with mode 0600, keeping any prior copy on failure.
+
+    Writes a sibling temp file, fsyncs it, then ``os.replace``s it into place, so an
+    interruption mid-save never truncates or corrupts an existing dump/journal/snapshot.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
         os.fchmod(fd, 0o600)
         with os.fdopen(fd, "wb") as fh:
             fd = -1
             fh.write(payload)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
     finally:
         if fd != -1:
             os.close(fd)
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
 
 
 def snapshot_dir() -> Path:

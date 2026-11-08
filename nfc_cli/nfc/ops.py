@@ -1187,7 +1187,7 @@ def build_message(
         )
     try:
         if raw is not None:
-            ndef.decode_message(raw)  # validate before writing
+            ndef.decode_message(raw, strict=True)  # validate: one well-formed message
             return bytes(raw)
         if text is not None:
             rec = ndef.text_record(text, lang or "en")
@@ -1414,6 +1414,22 @@ def ndef_format(
 # ===================================================================== raw APDU
 
 
+def _raw_write_protected(family: str | None, block: int) -> str | None:
+    """Why a raw FF D6 to ``block`` is refused for ``family`` (None = unknown -> treat as Classic).
+
+    Static, so it never alters the card's auth/SELECT state the raw sequence relies on.
+    """
+    if family in CLASSIC_SECTORS or family is None:
+        if block == 0 or classic.is_trailer(block):
+            return "block 0 / sector trailer"
+    elif family and (family.startswith("ultralight") or family == "topaz"):
+        if block < 4:
+            return "UID / lock / capability-container page"
+    elif block == 0:
+        return "UID / manufacturer block"
+    return None
+
+
 def raw_apdu(
     t: Transport,
     apdus: list[str | bytes],
@@ -1428,11 +1444,13 @@ def raw_apdu(
         raise InvalidInput("give at least one APDU of 4+ bytes")
     card = connect(t) if apply else None
     if not include_trailers:
+        fam = card.family if card is not None else None
         for c in cmds:
-            if c[0] == 0xFF and c[1] == 0xD6 and (card is None or card.is_classic):
-                if c[3] == 0 or classic.is_trailer(c[3]):
+            if c[0] == 0xFF and c[1] == 0xD6:
+                blk, reason = c[3], _raw_write_protected(fam, c[3])
+                if reason:
                     raise InvalidInput(
-                        f"refusing raw write to block {c[3]} (block 0 / sector trailer)",
+                        f"refusing raw write to block/page {blk} ({reason})",
                         "pass include_trailers / --include-trailers only if you really mean it",
                     )
     if not apply:

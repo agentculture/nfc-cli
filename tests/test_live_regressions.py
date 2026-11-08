@@ -10,6 +10,8 @@ fallback only handled ApduError, so it never ran.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from nfc_cli.nfc import ops
@@ -234,3 +236,72 @@ def test_write_refuses_swapped_tag(tmp_path):
     # the correct UID proceeds
     res = ops.write(t, 4, bytes(range(16)), apply=True, expect_uid=present_uid)
     assert res["applied"] and res["summary"]["write"] == 1
+
+
+def test_atomic_save_keeps_prior_copy_on_failure(tmp_path, monkeypatch):
+    """Review finding #7: an interrupted save must not truncate an existing file."""
+    from nfc_cli.nfc import dumpfile
+
+    p = tmp_path / "d.json"
+    p.write_bytes(b"GOOD-ORIGINAL")
+    real_replace = os.replace
+
+    def boom(src, dst):
+        raise OSError("simulated crash during replace")
+
+    monkeypatch.setattr(dumpfile.os, "replace", boom)
+    with pytest.raises(OSError):
+        dumpfile._write_private(p, b"NEW")
+    assert p.read_bytes() == b"GOOD-ORIGINAL"  # prior copy intact
+    assert list(tmp_path.glob(".d.json.*.tmp")) == []  # temp cleaned up
+    monkeypatch.setattr(dumpfile.os, "replace", real_replace)
+
+
+def test_bin_dump_roundtrips_4byte_pages():
+    """Review finding #5: a binary dump of a 4-byte-page tag restores to 4-byte pages."""
+    from nfc_cli.nfc import dumpfile
+
+    d = dumpfile.Dump(
+        "", "04a1b2c3", dumpfile.FAMILY_ULTRALIGHT, {i: f"{i:02x}" * 4 for i in range(8)}
+    )
+    raw = d.to_bytes()
+    back = dumpfile.Dump.from_bytes(raw, family=dumpfile.FAMILY_ULTRALIGHT)
+    assert back.blocks == d.blocks
+    assert all(len(bytes.fromhex(h)) == 4 for h in back.blocks.values())
+
+
+def test_raw_ndef_write_rejects_trailing_bytes():
+    """Review finding #11: a raw message with bytes after the final record is refused."""
+    good = ops.ndef.encode_message([ops.ndef.uri_record("https://x.org")])
+    assert ops.build_message(raw=good) == good
+    with pytest.raises(ops.InvalidInput):
+        ops.build_message(raw=good + b"\x99\x99")
+
+
+def test_dump_output_confined_over_mcp(tmp_path, monkeypatch):
+    """Review finding #14: over MCP/web a dump cannot write outside the dumps dir."""
+    from nfc_cli import verbs
+    from nfc_cli.registry import Context
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    t = load_scenario("x3")
+    ctx = Context(transport_factory=lambda: t)
+    verb = next(v for v in verbs.REGISTRY.verbs() if v.path == ("tag", "dump"))
+    with pytest.raises(verbs.ops.InvalidInput, match="must stay inside"):
+        verbs.invoke(verb, {"output": "/etc/evil.json"}, ctx, surface="mcp")
+    # a plain filename is fine and lands in the dumps dir
+    res = verbs.invoke(verb, {"output": "ok.json"}, ctx, surface="mcp")
+    assert res["path"].endswith("/ok.json")
+
+
+def test_raw_apdu_refuses_ntag_lock_pages():
+    """Review finding #15: a raw FF D6 to a Type 2 (NTAG) lock/CC page is refused on apply,
+    so a raw sequence cannot permanently lock an Ultralight/NTAG tag by accident."""
+    t = load_scenario("ntag215")
+    t.power_on()
+    with pytest.raises(ops.InvalidInput, match="page 2"):
+        ops.raw_apdu(t, ["FFD6000204" + "00" * 4], apply=True)  # write page 2 (lock)
+    # a data page is allowed
+    res = ops.raw_apdu(t, ["FFD6001004" + "01020304"], apply=True)
+    assert res["applied"]

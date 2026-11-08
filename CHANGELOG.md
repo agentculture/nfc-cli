@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.3] - 2026-11-08
+
+### Fixed
+
+- Dump/snapshot/journal files are written atomically (temp file + fsync + replace), so an interrupted save never truncates an existing file. (code review)
+- Binary dumps of 4-byte-page tags (Ultralight/NTAG, ISO 15693) round-trip at the right page size instead of being split into 16-byte blocks. (code review)
+- A raw NDEF message with bytes after its final record is refused before being written. (code review)
+- Over MCP and the web API a `tag dump` output path is confined to the dumps directory, so a remote caller cannot overwrite an arbitrary file. (code review)
+- `tag apdu`: a raw `FF D6` to a Type 2 (Ultralight/NTAG) lock / capability-container page is refused without `--include-trailers`, so a raw sequence cannot permanently lock those tags by accident. (code review)
+- Web console: revealing keys or reading NDEF no longer applies a stale response after the tag is swapped, so one tag's keys/records can't appear under another. (code review)
+
 ## [0.12.2] - 2026-11-08
 
 ### Fixed

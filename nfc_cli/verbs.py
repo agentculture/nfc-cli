@@ -580,9 +580,28 @@ def check_trailer_gate(verb: Verb, params: dict, apply: bool, surface: str) -> N
         )
 
 
+def _confine_output(verb: Verb, params: dict, surface: str) -> None:
+    """Over MCP/web, keep a file-writing ``output`` inside the dumps dir (no arbitrary
+    path a remote caller could overwrite). The CLI (a local operator) may write anywhere."""
+    if surface not in GATED_SURFACES:
+        return
+    out = params.get("output")
+    if not out:
+        return
+    base = ops.dumps_dir().resolve()
+    target = (base / out).resolve() if not Path(out).is_absolute() else Path(out).resolve()
+    if base != target and base not in target.parents:
+        raise ops.InvalidInput(
+            f"over {surface} the dump output must stay inside {base}",
+            "omit output to use the default dir, or pass a plain filename",
+        )
+    params["output"] = str(target)
+
+
 def invoke(verb: Verb, params: dict, ctx: Context, surface: str = "cli") -> dict:
     """Run a verb the way every surface should: trailer gate, handler, audit log."""
     check_trailer_gate(verb, params, ctx.apply, surface)
+    _confine_output(verb, params, surface)
     result = verb.handler(ctx, **params)
     written = result.get("protected_blocks_written") if isinstance(result, dict) else None
     if written:

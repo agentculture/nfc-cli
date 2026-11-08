@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type ApiError, callVerb } from "../api/client";
 import { ErrorNote } from "./ErrorNote";
 import { type WriteFlowProps, type WriteResult, WriteFlow } from "./WriteFlow";
@@ -33,9 +33,13 @@ export function NdefPanel({ cardUid, classic, onApplied, ...shared }: Shared & {
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const forUid = useRef<string | null>(null);
+
   const read = useCallback(async () => {
+    const mine = cardUid;
     setBusy(true);
     const res = await callVerb<NdefRead>("ndef", "read", {});
+    if (forUid.current !== mine) return; // a different tag is on the reader now: drop this
     setBusy(false);
     if (res.ok) {
       setData(res.result);
@@ -44,9 +48,11 @@ export function NdefPanel({ cardUid, classic, onApplied, ...shared }: Shared & {
       setData(null);
       setError(res.error);
     }
-  }, []);
+  }, [cardUid]);
 
   useEffect(() => {
+    forUid.current = cardUid;
+    setData(null); // clear the previous tag's NDEF while switching
     void read();
   }, [read, cardUid]);
 

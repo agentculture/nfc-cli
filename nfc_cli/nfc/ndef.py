@@ -99,7 +99,7 @@ def encode_message(records: list[NdefRecord]) -> bytes:
     return bytes(out)
 
 
-def decode_message(data: bytes) -> list[NdefRecord]:
+def decode_message(data: bytes, strict: bool = False) -> list[NdefRecord]:
     records: list[NdefRecord] = []
     pos, n = 0, len(data)
 
@@ -125,6 +125,8 @@ def decode_message(data: bytes) -> list[NdefRecord]:
         rtype, rid, payload = take(type_len), take(id_len), take(pay_len)
         records.append(NdefRecord(flags & 0x07, rtype, rid, payload))
         if flags & _ME:
+            if strict and pos != n:
+                raise NdefError("trailing bytes after the final NDEF record")
             return records
         if pos >= n:
             raise NdefError("message ended without an ME flag")
