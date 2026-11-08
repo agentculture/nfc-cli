@@ -12,11 +12,10 @@ from __future__ import annotations
 _ROOT = """\
 # nfc-cli
 
-A clonable template for AgentCulture mesh agents. It carries an agent-first CLI
-(cited from the teken `python-cli` reference), a mesh identity (`culture.yaml` +
-`CLAUDE.md`), the canonical guildmaster skill kit under `.claude/skills/`, and a
-buildable/deployable package baseline. Clone it, rename the package, edit
-`culture.yaml`, and you have a new agent.
+Control NFC reader-writers (ACS ACR1552) via USB: read, write, dump, restore and
+NDEF-encode tags. One verb registry feeds three surfaces: this CLI, an MCP server
+(`nfc-cli mcp`) and a local web UI (`nfc-cli ui serve`). Writes are a dry-run
+unless `--apply` is given. Identity lives in `culture.yaml` + `CLAUDE.md`.
 
 ## Verbs
 
@@ -26,6 +25,12 @@ buildable/deployable package baseline. Clone it, rename the package, edit
 - `nfc-cli overview` — descriptive snapshot of the agent.
 - `nfc-cli doctor` — check the agent-identity invariants.
 - `nfc-cli cli overview` — describe the CLI surface.
+- `nfc-cli reader list|info` — reader operations.
+- `nfc-cli tag info|uid|wait|read|write|dump|restore|apdu` — tag operations.
+- `nfc-cli ndef read|write|erase|format` — NDEF operations.
+- `nfc-cli mcp` — MCP server on stdio.
+- `nfc-cli ui serve` — local web UI and /api.
+- `nfc-cli <noun> overview` — describe reader, tag, ndef or ui.
 
 ## Exit-code policy
 
@@ -122,6 +127,87 @@ itself (distinct from the global `overview`, which describes the agent).
 """
 
 
+_MCP = """\
+# nfc-cli mcp
+
+Runs an MCP server on stdio exposing every reader / tag / ndef verb as a tool
+(`tag_read`, `ndef_write`, ...). Mutating tools are a dry-run unless `apply=true`.
+Needs the optional extra: `pip install 'nfc-cli[mcp]'` (missing extra: exit 2).
+
+## Usage
+
+    nfc-cli mcp
+"""
+
+_UI = """\
+# nfc-cli ui
+
+Noun group for the local web UI. `ui serve` serves the UI and the /api routes
+(same verbs as the CLI); `ui overview` describes the group.
+
+## Usage
+
+    nfc-cli ui overview
+    nfc-cli ui overview --json
+"""
+
+_UI_SERVE = """\
+# nfc-cli ui serve
+
+Serves the web UI and /api on 127.0.0.1 by default. A non-loopback `--host` is
+refused (exit 1) unless `--bind-public` is passed. `--fake SCENARIO` serves a
+fake reader (e.g. `x3`) so no hardware is needed.
+
+## Usage
+
+    nfc-cli ui serve
+    nfc-cli ui serve --port 8080 --fake x3
+    nfc-cli ui serve --host 0.0.0.0 --bind-public
+"""
+
+_NOUNS = {
+    "reader": "ACR1552 reader operations.",
+    "tag": "Tag operations.",
+    "ndef": "NDEF operations.",
+}
+
+
+def _registry_entries() -> dict[tuple[str, ...], str]:
+    import nfc_cli.verbs  # noqa: F401  (registers the verbs)
+    from nfc_cli.registry import REGISTRY
+
+    out: dict[tuple[str, ...], str] = {}
+    for noun, blurb in _NOUNS.items():
+        verbs = REGISTRY.verbs(noun)
+        lines = "\n".join(f"- `nfc-cli {noun} {v.verb}` — {v.summary}" for v in verbs)
+        out[(noun,)] = (
+            f"# nfc-cli {noun}\n\n{blurb} Every verb accepts `--json`, `--trace` (APDU trace on "
+            f"stderr) and `--reader`; mutating verbs are a dry-run unless `--apply`.\n\n"
+            f"## Verbs\n\n{lines}\n- `nfc-cli {noun} overview` — describe this noun.\n"
+        )
+        out[(noun, "overview")] = out[(noun,)]
+        for v in verbs:
+            flags = []
+            for p in v.params:
+                shown = p.name if p.positional else "--" + p.name.replace("_", "-")
+                flags.append(f"- `{shown}` — {p.help}")
+            if v.mutating:
+                flags.append("- `--apply` — commit the write (default is a dry-run)")
+            flag_text = "\n".join(flags) or "- (none)"
+            note = ""
+            if v.extra.get("trailer_flag"):
+                note = (
+                    "\nSector trailers and block 0 are protected: they are only written with "
+                    "`--include-trailers` (ndef format writes its fixed template trailers).\n"
+                )
+            out[v.path] = (
+                f"# nfc-cli {noun} {v.verb}\n\n{v.summary}.\n\n## Options\n\n{flag_text}\n"
+                f"- `--json`, `--trace`, `--reader`\n{note}\n## Usage\n\n"
+                f"    nfc-cli {noun} {v.verb} --json\n"
+            )
+    return out
+
+
 ENTRIES: dict[tuple[str, ...], str] = {
     (): _ROOT,
     ("nfc-cli",): _ROOT,
@@ -133,3 +219,5 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("cli",): _CLI,
     ("cli", "overview"): _CLI,
 }
+ENTRIES.update(_registry_entries())
+ENTRIES.update({("mcp",): _MCP, ("ui",): _UI, ("ui", "overview"): _UI, ("ui", "serve"): _UI_SERVE})

@@ -66,12 +66,17 @@ def _build_parser() -> argparse.ArgumentParser:
     from nfc_cli.cli._commands import doctor as _doctor_cmd
     from nfc_cli.cli._commands import explain as _explain_cmd
     from nfc_cli.cli._commands import learn as _learn_cmd
+    from nfc_cli.cli._commands import mcp as _mcp_cmd
+    from nfc_cli.cli._commands import ndef as _ndef_group
     from nfc_cli.cli._commands import overview as _overview_cmd
+    from nfc_cli.cli._commands import reader as _reader_group
+    from nfc_cli.cli._commands import tag as _tag_group
+    from nfc_cli.cli._commands import ui as _ui_group
     from nfc_cli.cli._commands import whoami as _whoami_cmd
 
     parser = _CliArgumentParser(
         prog="nfc-cli",
-        description="nfc-cli — a clonable template for AgentCulture mesh agents.",
+        description="nfc-cli — control NFC reader-writers via USB (CLI, MCP server, web UI).",
     )
     parser.add_argument(
         "--version",
@@ -88,9 +93,12 @@ def _build_parser() -> argparse.ArgumentParser:
     _overview_cmd.register(sub)
     _doctor_cmd.register(sub)
     _cli_group.register(sub)
-    # Register your own noun groups here:
-    #   from nfc_cli.cli._commands import my_noun as _my_noun_group
-    #   _my_noun_group.register(sub)
+    # Noun groups generated from nfc_cli.registry.REGISTRY, plus the mcp / ui entry points.
+    _reader_group.register(sub)
+    _tag_group.register(sub)
+    _ndef_group.register(sub)
+    _mcp_cmd.register(sub)
+    _ui_group.register(sub)
 
     return parser
 

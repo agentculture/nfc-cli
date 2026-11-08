@@ -30,6 +30,11 @@ _VERBS = [
     "explain <path> — markdown docs for a topic",
     "overview — this descriptive snapshot",
     "doctor — check the agent-identity invariants",
+    "reader list|info — ACR1552 reader operations",
+    "tag info|uid|wait|read|write|dump|restore|apdu — tag operations",
+    "ndef read|write|erase|format — NDEF operations",
+    "mcp — MCP server on stdio (every verb as a tool)",
+    "ui serve|overview — local web UI + /api",
 ]
 
 
