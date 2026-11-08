@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-11-08
+
+### Changed
+
+- Replace the seed CLAUDE.md with a full runtime prompt: project status (no NFC code yet), observed hardware (VENTUNO Q host, ACS ACR1552 reader, no PC/SC stack installed), dev/lint/CI commands, the agent-first CLI contract, mesh identity and doctor invariants, the four-harness prompt-file layout, and repo conventions.
+
 ## [0.10.0] - 2026-10-06
 
 ### Added
