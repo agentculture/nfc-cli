@@ -1009,6 +1009,15 @@ def resume(
     latest = journal.latest()
     changes = {b: bytes.fromhex(latest[b]["new"]) for b in journal.pending()}
     acc = _access(t, card, **_key_args(keyargs))
+    protected_pending = sorted(b for b in changes if acc.protected(b))
+    if meta.get("include_trailers") and protected_pending and not include_trailers:
+        # The interrupted write was allowed to touch trailers/block 0; never finish it
+        # half-way by silently skipping them, and never write them without the flag again.
+        raise InvalidInput(
+            f"this journal still has trailer/block-0 writes pending {protected_pending}",
+            f"rerun with --include-trailers to finish them: nfc-cli tag restore {path} "
+            "--resume --include-trailers --apply",
+        )
     return _mutate(
         t,
         card,

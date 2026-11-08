@@ -101,3 +101,36 @@ def test_write_key_types_decodes_datasheet_conditions() -> None:
     assert classic.write_key_types(ndef_sector, 7) == ("B",)
     assert classic.write_key_types(mad_sector, 1) == ("B",)
     assert classic.write_key_types(mad_sector, 3) == ("B",)
+
+
+def test_resume_refuses_to_silently_skip_pending_trailers(tmp_path, monkeypatch) -> None:
+    """Live 2026-11-08: `tag restore J --resume --apply` skipped all 16 pending trailers."""
+    t = load_scenario("blank-classic")
+    t.power_on()
+    blank = _blank_dump(t, tmp_path)
+    ops.ndef_format(t, apply=True)
+    real_update = t.card._update
+    writes = {"n": 0}
+
+    def update_then_leave(block, data):
+        resp = real_update(block, data)
+        writes["n"] += 1
+        if writes["n"] == 3:
+            t.remove_card()  # drop the tag part-way through the restore
+        return resp
+
+    t.card._update = update_then_leave  # type: ignore[method-assign]
+    with pytest.raises(ops.WriteInterrupted) as exc:
+        ops.restore(t, blank, apply=True, include_trailers=True)
+    journal = exc.value.journal
+    t.card._update = real_update  # type: ignore[method-assign]
+    t.insert_card(t.card)
+    t.power_on()
+    with pytest.raises(ops.InvalidInput, match="trailer/block-0 writes pending") as refused:
+        ops.resume(t, journal, apply=True)
+    assert "--include-trailers" in refused.value.remediation
+    res = ops.resume(t, journal, apply=True, include_trailers=True)
+    assert res["summary"]["skip"] == 0
+    original = ops.dumpfile.Dump.load(blank)
+    for block, hexdata in original.blocks.items():
+        assert t.card.blocks[int(block)].hex() == hexdata, block
