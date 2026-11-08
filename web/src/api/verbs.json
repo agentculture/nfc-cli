@@ -73,6 +73,39 @@
     },
     {
       "noun": "tag",
+      "verb": "magic-check",
+      "summary": "Test (non-destructively) whether a Classic tag's UID block can be rewritten",
+      "route": "/api/tag/magic-check",
+      "mutating": false,
+      "trailer_flag": null,
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "MIFARE Classic key to try first (12 hex digits)"
+          },
+          "key_type": {
+            "type": "string",
+            "description": "key type for --key: A or B",
+            "default": "A"
+          },
+          "keys_file": {
+            "type": "string",
+            "description": "file of extra Classic keys, one per line"
+          },
+          "wait": {
+            "type": "integer",
+            "description": "seconds to wait for a card before failing (default: no wait)"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "tag",
       "verb": "wait",
       "summary": "Wait until a tag is on the reader",
       "route": "/api/tag/wait",

@@ -9,7 +9,7 @@ from nfc_cli.registry import REGISTRY
 
 def test_mcp_tool_names_equal_registry_verbs():
     assert {s["name"] for s in tools.tool_specs()} == {v.tool_name for v in REGISTRY.verbs()}
-    assert len(REGISTRY.verbs()) == 14
+    assert len(REGISTRY.verbs()) == 15
 
 
 def test_input_schemas_come_from_params_schema():

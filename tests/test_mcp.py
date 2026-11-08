@@ -128,6 +128,6 @@ def test_inprocess_server_lists_and_calls_tag_info():
             return names, ok, bad
 
     names, ok, bad = anyio.run(run)
-    assert "tag_info" in names and len(names) == 14
+    assert "tag_info" in names and len(names) == 15
     assert not ok.isError and json.loads(ok.content[0].text)["uid"]
     assert bad.isError and "include_trailers" in bad.content[0].text

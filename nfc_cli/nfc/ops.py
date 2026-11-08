@@ -582,6 +582,34 @@ def uid(t: Transport) -> dict:
     return {"uid": card.uid_hex, "family": card.family}
 
 
+def magic_check(t: Transport, **keyargs) -> dict:
+    """Report whether a MIFARE Classic tag's UID block (block 0) can be rewritten.
+
+    Non-destructive: it writes block 0's own bytes back to itself. A genuine chip
+    refuses (block 0 is read-only); a UID-rewritable card accepts. Used to tell
+    whether `tag write --block0` can clone a UID onto this tag.
+    """
+    card = connect(t)
+    if card.family not in CLASSIC_SECTORS:
+        raise InvalidInput(
+            f"magic-check is for MIFARE Classic; this tag is {card.family}",
+            "block-0 rewriting is a MIFARE Classic magic-card feature",
+        )
+    acc = _access(t, card, **_key_args(keyargs))
+    kt, key = acc.found.get(0) or classic.find_key(t, 0, acc.extra)
+    writable = classic.probe_block0_writable(t, key)
+    return {
+        "uid": card.uid_hex,
+        "family": card.family,
+        "block0_writable": writable,
+        "note": (
+            "UID-rewritable (magic) card: `tag write --block0` can change the UID"
+            if writable
+            else "block 0 is read-only (genuine chip); the UID cannot be changed"
+        ),
+    }
+
+
 def _read_all(
     t: Transport,
     card: Card,

@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Iterable
 
 from nfc_cli.nfc import ndef
-from nfc_cli.nfc.errors import ApduError, AuthFailed, NfcError
+from nfc_cli.nfc.errors import ApduError, AuthFailed, CardRemoved, NfcError
 from nfc_cli.nfc.transport import Transport
 
 SW_OK = b"\x90\x00"
@@ -191,6 +191,29 @@ def read_sector(t: Transport, sector: int, key: bytes | str, key_type: str = "A"
     authenticate(t, sector, key, key_type)
     first = first_block(sector)
     return [read_block(t, first + i) for i in range(sector_size(sector))]
+
+
+def probe_block0_writable(t: Transport, key: bytes | str = DEFAULT_KEYS[0]) -> bool:
+    """Non-destructively test whether block 0 (the UID block) accepts a write.
+
+    Writes block 0's **own current bytes back to itself** after a normal sector-0
+    authentication. A genuine MIFARE Classic chip has block 0 permanently read-only
+    and refuses; a UID-rewritable ("CUID"/gen2) card accepts the write. The content
+    is identical either way, so the tag is unchanged.
+
+    A refused write can make the chip halt and the reader report the card as mute;
+    that is treated as "not writable", and the card is power-cycled so later calls
+    work. Raises if the card never answers again.
+    """
+    authenticate(t, 0, key, "A")
+    current = read_block(t, 0)
+    try:
+        _ok(*t.transmit(bytes([0xFF, 0xD6, 0, 0, 0x10]) + current), "block 0 self-write")
+    except (ApduError, CardRemoved):
+        _power_cycle(t)
+        get_uid(t)  # confirm the same tag is still reachable; re-raises if it is gone
+        return False
+    return True
 
 
 # ---------------------------------------------------------------- key dictionary

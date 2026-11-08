@@ -178,6 +178,19 @@ def tag_uid(ctx: Context, wait: int | None = None) -> dict:
 
 
 @_nfc_only
+def tag_magic_check(
+    ctx: Context,
+    key: str | None = None,
+    key_type: str | None = None,
+    keys_file: str | None = None,
+    wait: int | None = None,
+) -> dict:
+    kw = _keys(key, key_type, keys_file)
+    with open_transport(ctx, wait) as t:
+        return ops.magic_check(t, **kw)
+
+
+@_nfc_only
 def tag_wait(ctx: Context, timeout: int = 30) -> dict:
     with open_transport(ctx) as t:
         res = ops.wait_for_card(t, float(timeout))
@@ -372,6 +385,13 @@ def build_verbs() -> list[Verb]:
             "tag", "info", "Identify the tag on the reader (ATR, UID, family)", tag_info, (P_WAIT,)
         ),
         Verb("tag", "uid", "Print the tag UID", tag_uid, (P_WAIT,)),
+        Verb(
+            "tag",
+            "magic-check",
+            "Test (non-destructively) whether a Classic tag's UID block can be rewritten",
+            tag_magic_check,
+            (*KEY_PARAMS, P_WAIT),
+        ),
         Verb(
             "tag",
             "wait",

@@ -28,6 +28,11 @@ C35 = {
     ("ndef", "erase"),
     ("ndef", "format"),
 }
+# Verbs added beyond the c35 spec surface by an approved plan deviation (d2):
+# magic-card (UID-rewritable Classic) detection, part of the cloning capability.
+DEVIATION_VERBS = {
+    ("tag", "magic-check"),
+}
 MUTATING = {
     ("tag", "write"),
     ("tag", "restore"),
@@ -59,7 +64,7 @@ def call(noun, verb, ctx, surface="cli", **params):
 def test_registered_set_matches_c35_surface():
     assert {v.path for v in REGISTRY.verbs()} >= C35
     fresh = verbs.register(Registry())
-    assert {v.path for v in fresh.verbs()} == C35
+    assert {v.path for v in fresh.verbs()} == C35 | DEVIATION_VERBS
     verbs.register(fresh)  # idempotent
     assert {v.path for v in fresh.verbs() if v.mutating} == MUTATING
     assert fresh.nouns() == ["reader", "tag", "ndef"]
