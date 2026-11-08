@@ -45,21 +45,59 @@ def test_restore_formatted_classic_when_refused_write_mutes_card(tmp_path) -> No
     assert t.card.blocks == original  # byte-identical, trailers and keys included
 
 
-def test_mute_with_card_really_gone_still_raises(tmp_path) -> None:
+def test_mute_with_card_really_gone_still_raises(tmp_path, monkeypatch) -> None:
     t = load_scenario("blank-classic")
     t.card.mute_on_nak = True
     t.power_on()
     blank = _blank_dump(t, tmp_path)
     ops.ndef_format(t, apply=True)
+    # force the reactive path: pretend the access bits allow key A, so the write NAKs
+    monkeypatch.setattr(ops.classic, "write_key_types", lambda trailer, block: ("A",))
+    monkeypatch.setattr(ops.time, "sleep", lambda s: None)
 
-    real_present = t.present
-    calls = {"n": 0}
+    real_off = t.power_off
 
-    def flaky_present() -> bool:
-        # the tag leaves the field right when the refused write is noticed
-        calls["n"] += 1
-        return False if calls["n"] > 1 else real_present()
+    def off_and_leave() -> None:
+        halted = t.card.halted
+        real_off()
+        if halted:
+            t.remove_card()  # the tag leaves the field while we try to recover
 
-    t.present = flaky_present  # type: ignore[method-assign]
+    t.power_off = off_and_leave  # type: ignore[method-assign]
     with pytest.raises(CardRemoved):
         ops.restore(t, blank, apply=True, include_trailers=True)
+
+
+def test_access_bits_choose_key_b_without_any_nak(tmp_path) -> None:
+    """Proactive path: no refused write at all, so the chip never halts."""
+    t = load_scenario("blank-classic")
+    t.card.mute_on_nak = True
+    t.power_on()
+    blank = _blank_dump(t, tmp_path)
+    ops.ndef_format(t, apply=True)
+    halts = []
+    real_update = t.card._update
+
+    def watch(block, data):
+        resp = real_update(block, data)
+        if t.card.halted:
+            halts.append(block)
+        return resp
+
+    t.card._update = watch  # type: ignore[method-assign]
+    ops.restore(t, blank, apply=True, include_trailers=True)
+    assert halts == []
+
+
+def test_write_key_types_decodes_datasheet_conditions() -> None:
+    from nfc_cli.nfc import classic
+
+    transport = bytes(6) + bytes.fromhex("ff078069") + bytes(6)
+    ndef_sector = bytes(6) + bytes.fromhex("7f078840") + bytes(6)
+    mad_sector = bytes(6) + bytes.fromhex("787788c1") + bytes(6)
+    assert classic.write_key_types(transport, 4) == ("A", "B")
+    assert classic.write_key_types(transport, 7) == ("A",)
+    assert classic.write_key_types(ndef_sector, 4) == ("A", "B")
+    assert classic.write_key_types(ndef_sector, 7) == ("B",)
+    assert classic.write_key_types(mad_sector, 1) == ("B",)
+    assert classic.write_key_types(mad_sector, 3) == ("B",)

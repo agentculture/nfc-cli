@@ -311,6 +311,8 @@ class _ClassicAccess(_Access):
         self.preferred = (str(key_type or "A").upper(), key) if key else None
         self.found: dict[int, tuple[str, bytes]] = {}
         self.authed: tuple[int, str] | None = None
+        self._trailers: dict[int, bytes] = {}
+        self._uid: bytes | None = None
 
     def sector_blocks(self, sector: int) -> list[int]:
         first = classic.first_block(sector)
@@ -352,24 +354,53 @@ class _ClassicAccess(_Access):
         self.auth(classic.sector_of(block))
         return classic.read_block(self.t, block)
 
+    def _write_keys(self, block: int) -> tuple[str, ...]:
+        """Key types the sector's access bits allow for writing ``block`` (cached per sector)."""
+        sector = classic.sector_of(block)
+        trailer = self._trailers.get(sector)
+        if trailer is None:
+            self.auth(sector)
+            trailer = classic.read_block(self.t, classic.trailer_block(sector))
+            self._trailers[sector] = trailer
+        return classic.write_key_types(trailer, block)
+
+    def _recover(self) -> bool:
+        """After a mute card: power-cycle and report whether the same tag answers again."""
+        for _ in range(5):
+            try:
+                _power_cycle(self.t)
+                uid = classic.get_uid(self.t)
+            except (NoCard, CardRemoved, ApduError):
+                time.sleep(0.2)
+                continue
+            return self._uid is None or uid == self._uid
+        return False
+
     def write(self, block: int, data: bytes) -> None:
         sector = classic.sector_of(block)
-        self.auth(sector)
+        if self._uid is None:
+            self._uid = classic.get_uid(self.t)
+        allowed = self._write_keys(block)
+        if not allowed:
+            raise classic.ClassicError(
+                f"block {block}: the sector's access bits allow no key to write it",
+                "this block is read-only on the tag; leave it out or restore another sector",
+            )
+        self.auth(sector, allowed)
         try:
             classic.write_block(self.t, block, data, allow_trailer=True)
         except (ApduError, CardRemoved):
-            # Access conditions may reserve writes for key B (e.g. NFC-Forum sector 0, 787788).
-            # A refused write is reported either as an error SW or -- on the ACR1552, because
-            # the chip halts after the NAK -- as a mute card (CardRemoved) while the tag is still
-            # in the field. Only a card that is really gone keeps the CardRemoved.
-            if not self.t.present():
+            # A refused write shows up as an error SW, or -- on the ACR1552, because the chip
+            # halts after the NAK -- as a mute card the reader drops from the field. Recover by
+            # power-cycling; only a tag that does not come back keeps the CardRemoved.
+            if not self._recover():
                 raise
             self.authed = None
-            _power_cycle(self.t)
             self.auth(sector, ("B",))
             classic.write_block(self.t, block, data, allow_trailer=True)
         if classic.is_trailer(block):
             self.found.pop(sector, None)
+            self._trailers.pop(sector, None)
             self.authed = None
 
     def effective(self, block: int, raw: bytes) -> bytes:

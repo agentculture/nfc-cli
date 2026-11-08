@@ -75,6 +75,54 @@ def _ok(data: bytes, sw: bytes, what: str) -> bytes:
     return data
 
 
+# MIFARE Classic access conditions (NXP MF1S50 datasheet, section 8.7). C1C2C3 as a 3-bit
+# int, C1 high. Which key type may WRITE a data block / any field of the trailer.
+_DATA_WRITE = {
+    0b000: "AB",
+    0b010: "",
+    0b100: "B",
+    0b110: "B",
+    0b001: "",
+    0b011: "B",
+    0b101: "",
+    0b111: "",
+}
+# trailer: cond -> key types that may write at least one of key A / access bits / key B
+_TRAILER_WRITE = {
+    0b000: "A",
+    0b010: "",
+    0b100: "B",
+    0b110: "",
+    0b001: "A",
+    0b011: "B",
+    0b101: "B",
+    0b111: "",
+}
+
+
+def access_conditions(trailer: bytes) -> list[int]:
+    """C1C2C3 for access groups 0..3 (group 3 = the trailer) from a trailer's bytes 6-8."""
+    b7, b8 = trailer[7], trailer[8]
+    return [
+        ((b7 >> (4 + g)) & 1) << 2 | ((b8 >> g) & 1) << 1 | ((b8 >> (4 + g)) & 1) for g in range(4)
+    ]
+
+
+def write_key_types(trailer: bytes, block: int) -> tuple[str, ...]:
+    """Key types allowed to write ``block`` under ``trailer``'s access bits ('' = none)."""
+    first = first_block(sector_of(block))
+    idx = block - first
+    if is_trailer(block):
+        group = 3
+    elif sector_size(sector_of(block)) == 4:
+        group = idx
+    else:  # 4K large sectors: blocks 0-4, 5-9, 10-14 share access groups 0, 1, 2
+        group = min(idx // 5, 2)
+    cond = access_conditions(trailer)[group]
+    allowed = (_TRAILER_WRITE if group == 3 else _DATA_WRITE)[cond]
+    return tuple(k for k in ("A", "B") if k in allowed)
+
+
 def _power_cycle(t: Transport) -> None:
     off = getattr(t, "power_off", None)
     if off is not None:
