@@ -32,10 +32,16 @@ update this section so the docs keep matching what's actually on disk.
 ## What this project is
 
 `nfc-cli` is an AgentCulture mesh agent whose purpose is to **control NFC
-reader-writers via USB**. It was scaffolded from `culture-agent-template`, and
-**no NFC functionality exists yet** — today the repo holds only the template
-baseline: an agent-first CLI (identity/introspection verbs), a mesh identity,
-the canonical skill kit, and a buildable/deployable package. `CLAUDE.md` in
+reader-writers via USB**. **Status: implemented.** It drives an ACS ACR1552
+over raw USB CCID and exposes the same registry-derived verbs three ways: the
+CLI (`reader`, `tag`, `ndef` nouns; `--json`, `--trace`, `--reader`; writes are
+a dry-run unless `--apply`, trailers need `--include-trailers`), an MCP server
+(`nfc-cli mcp`, extra `nfc-cli[mcp]`, tools named `noun_verb`), and a local web
+console (`nfc-cli ui serve`, default 127.0.0.1:8770). Optional extras: `usb`
+(pyusb), `mcp`, `all`. It was scaffolded from `culture-agent-template`, so the
+agent-first identity/introspection CLI, mesh identity, skill kit and
+build/deploy pipeline remain. Hardware notes: `docs/hardware.md`.
+`CLAUDE.md` in
 this repo is written for a Claude Code session working *on* the repo — it is
 not your runtime prompt, but it is the fullest write-up of the repo's
 conventions if you need more context than fits here (commands and lint gates,

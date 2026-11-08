@@ -1,0 +1,4 @@
+# nfc-cli: let members of group "plugdev" talk to the ACS ACR1552 over raw USB
+# (headless / SSH / service use, where no active local seat session exists).
+# Install: see docs/hardware.md.
+SUBSYSTEM=="usb", ATTR{idVendor}=="072f", ATTR{idProduct}=="2303", GROUP="plugdev", MODE="0660"

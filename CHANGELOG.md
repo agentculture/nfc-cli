@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-11-08
+
+### Added
+
+- NFC functionality: `reader` (`list`, `info`), `tag` (`info`, `uid`, `wait`, `read`, `write`, `dump`, `restore`, `apdu`) and `ndef` (`read`, `write`, `erase`, `format`) commands driving an ACS ACR1552 over raw USB CCID. Writes are a dry-run unless `--apply`; sector trailers need `--include-trailers`.
+- MCP server (`nfc-cli mcp`) with `noun_verb` tools, and a local web console (`nfc-cli ui serve`).
+- First optional dependency extras: `usb` (pyusb), `mcp`, and `all`. The base runtime remains dependency-free.
+- `docs/hardware.md` (tested setup, uaccess/seat caveat, 125 kHz/UHF tags, weak-coupling tips) and `docs/udev/60-nfc-cli-acr1552.rules` for headless reader access.
+
+### Changed
+
+- README and all four harness prompt files (`CLAUDE.md`, `AGENTS.colleague.md`, `AGENTS.override.md` + `.pi/SYSTEM.md`, `QWEN.md`) now describe the implemented NFC CLI, MCP server and web console. Before this release the repo was the template baseline only (identity/introspection verbs, no NFC code, no dependencies); that baseline is retained underneath.
+
 ## [0.10.1] - 2026-11-08
 
 ### Changed

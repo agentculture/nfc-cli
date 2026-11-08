@@ -10,10 +10,15 @@ Qwen Code session.
 ## What this project is
 
 `nfc-cli` is an AgentCulture mesh agent whose purpose is to **control NFC
-reader-writers via USB**. It was scaffolded from `culture-agent-template`, and
-**no NFC functionality exists yet** — today the repo holds only the template
-baseline: an agent-first CLI (identity/introspection verbs), a mesh identity,
-the canonical skill kit, and a buildable/deployable package.
+reader-writers via USB**. **Status: implemented.** It drives an ACS ACR1552
+over raw USB CCID and exposes the same registry-derived verbs three ways: the
+CLI (`reader`, `tag`, `ndef` nouns; `--json`, `--trace`, `--reader`; writes are
+a dry-run unless `--apply`, trailers need `--include-trailers`), an MCP server
+(`nfc-cli mcp`, extra `nfc-cli[mcp]`, tools named `noun_verb`), and a local web
+console (`nfc-cli ui serve`, default 127.0.0.1:8770). Optional extras: `usb`
+(pyusb), `mcp`, `all`. It was scaffolded from `culture-agent-template`, so the
+agent-first identity/introspection CLI, mesh identity, skill kit and
+build/deploy pipeline remain. Hardware notes: `docs/hardware.md`.
 
 It is a sibling to [`guildmaster`](https://github.com/agentculture/guildmaster)
 (the **skills supplier**), [`steward`](https://github.com/agentculture/steward)
@@ -55,8 +60,8 @@ together satisfy the two invariants `steward doctor` verifies:
 ## The CLI
 
 The CLI is cited (cite-don't-import) from teken's `python-cli` reference
-(`teken cli cite`), so the runtime package currently has **no third-party
-dependencies** (NFC support will likely add the first one); `teken` (a.k.a.
+(`teken cli cite`), so the base runtime package has **no third-party
+dependencies** (optional extras: `usb`, `mcp`, `all`); `teken` (a.k.a.
 `afi-cli`) is a dev dependency only. Agent-first verbs:
 
 - `nfc-cli whoami` — identity from `culture.yaml`.
@@ -65,6 +70,9 @@ dependencies** (NFC support will likely add the first one); `teken` (a.k.a.
 - `nfc-cli overview` — descriptive snapshot of the agent.
 - `nfc-cli doctor` — check the agent-identity invariants.
 - `nfc-cli cli overview` — describe the CLI surface itself.
+- `nfc-cli reader list|info`, `nfc-cli tag info|uid|wait|read|write|dump|restore|apdu`,
+  `nfc-cli ndef read|write|erase|format` — the NFC verbs (writes need `--apply`).
+- `nfc-cli mcp` — MCP server on stdio; `nfc-cli ui serve` — local web console.
 
 Conventions: every command supports `--json`; results go to stdout, errors and
 diagnostics to stderr (never mixed); exit codes are `0` success, `1` user
@@ -95,6 +103,9 @@ from guildmaster instead.
 ```text
 nfc_cli/   agent-first CLI (cited from teken's python-cli reference)
   cli/                    parser, error/output contract, _commands/ (verbs)
+  nfc/                    reader, Classic/NDEF logic, fakes, journals
+  mcp/  web/              MCP server and local web console
+  registry.py verbs.py    one verb registry feeding CLI, MCP and web
   explain/                markdown catalog for `explain`
 tests/                    pytest smoke + introspection tests
 .claude/skills/           vendored guildmaster skill kit (cite-don't-import)
