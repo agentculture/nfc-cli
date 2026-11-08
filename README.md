@@ -4,20 +4,25 @@ Control NFC reader-writers via USB.
 
 ## What you get
 
+- **An NFC CLI** that reads, writes, dumps, restores and NDEF-encodes tags
+  through an ACS ACR1552 over raw USB CCID. Writes are a dry-run unless
+  `--apply` is given, and sector trailers need `--include-trailers`.
+- **An MCP server** (`nfc-cli mcp`, extra `nfc-cli[mcp]`) exposing the same
+  verbs as `noun_verb` tools.
+- **A local web console** (`nfc-cli ui serve`) with a tag memory map,
+  preview-then-apply writes, NDEF, dump/restore and a request log.
 - **An agent-first CLI** cited from [teken](https://github.com/agentculture/teken)
-  (`afi-cli`) — the runtime package has no third-party dependencies.
-- **A mesh identity** — `culture.yaml` (`suffix` + `backend`) and the matching
-  resident prompt file (`CLAUDE.md`, since this template runs
-  `backend: claude`). The mesh resident is one of **two separate
-  selections** over this clone — see
+  (`afi-cli`). The base runtime has no third-party dependencies; the first
+  optional extras are `usb` (pyusb), `mcp`, and `all`.
+- **A mesh identity** - `culture.yaml` (`suffix` + `backend`) and the matching
+  resident prompt file (`CLAUDE.md`, since this repo runs `backend: claude`).
+  The mesh resident is one of **two separate selections** - see
   [Two selections, not one](#two-selections-not-one) below.
 - **Four harness prompt files**, one per agent harness, each read by exactly
   one of them (see [Prompt files by harness](#prompt-files-by-harness) below).
-  All four harnesses are usable interactively regardless of which one
-  `culture.yaml` names as the mesh resident.
 - **The canonical guildmaster skill kit** (11 skills) under `.claude/skills/`,
   vendored cite-don't-import. See [`docs/skill-sources.md`](docs/skill-sources.md).
-- **A build + deploy baseline** — pytest, lint, the agent-first rubric gate, and
+- **A build + deploy baseline** - pytest, lint, the agent-first rubric gate, and
   PyPI Trusted Publishing wired into GitHub Actions.
 
 ## Prompt files by harness
@@ -54,7 +59,7 @@ unrelated file rather than cascading from a shared base.
 ## Two selections, not one
 
 It is tempting to read "switch harness" as one decision. It is actually two,
-and this template exists partly to keep them separate:
+and this repo keeps them separate:
 
 1. **The interactive harness** — which binary you run (`claude`, `pi`,
    `colleague`, `qwen`). `cd` into the clone and run any of them; all four
@@ -72,49 +77,70 @@ you can invoke interactively in (1). See
 writeup, including who reads this config and why existing siblings are not
 retrofitted by this arc.
 
+## Install
+
+```bash
+pip install 'nfc-cli[usb]'      # CLI + raw-USB reader access (pyusb)
+pip install 'nfc-cli[all]'      # also the MCP server
+```
+
+Extras: `usb` (pyusb), `mcp`, `all`. Reader permissions on a headless host
+need a udev rule - see [`docs/hardware.md`](docs/hardware.md) and
+[`docs/udev/60-nfc-cli-acr1552.rules`](docs/udev/60-nfc-cli-acr1552.rules).
+
 ## Quickstart
 
 ```bash
 uv sync
 uv run pytest -n auto                 # run the test suite
-uv run nfc-cli whoami  # identity from culture.yaml
-uv run nfc-cli learn   # self-teaching prompt (add --json)
+uv run nfc-cli learn                  # self-teaching prompt (add --json)
+uv run nfc-cli reader list            # find the reader
+uv run nfc-cli tag info --wait 30     # identify a tag held on the reader
 uv run teken cli doctor . --strict    # the agent-first rubric gate CI runs
+NFC_CLI_FAKE=x3 uv run nfc-cli tag info   # no hardware: simulated Xteink X3 tag
 ```
 
 ## CLI
 
-| Verb | What it does |
-|------|--------------|
-| `whoami` | Report this agent's nick, version, backend, and model from `culture.yaml`. |
-| `learn` | Print a structured self-teaching prompt. |
-| `explain <path>` | Markdown docs for any noun/verb path. |
-| `overview` | Read-only descriptive snapshot of the agent. |
-| `doctor` | Check the agent-identity invariants (prompt-file-present, backend-consistency). |
-| `cli overview` | Describe the CLI surface itself. |
+| Noun | Verbs |
+|------|-------|
+| `reader` | `list`, `info` |
+| `tag` | `info`, `uid`, `wait`, `read`, `write`, `dump`, `restore`, `apdu` |
+| `ndef` | `read`, `write`, `erase`, `format` |
+| (identity) | `whoami`, `learn`, `explain <path>`, `overview`, `doctor`, `cli overview` |
 
-Every command supports `--json`. Results go to stdout, errors/diagnostics to
-stderr (never mixed). Exit codes: `0` success, `1` user error, `2` environment
-error, `3+` reserved.
+Flags: `--json` (every command), `--trace` (APDU trace on stderr),
+`--reader INDEX|BUS:ADDR`, and on mutating verbs `--apply` (default is a
+dry-run) and `--include-trailers` (sector trailers and block 0). Use
+`nfc-cli explain <noun> <verb>` for per-verb docs.
 
-## Make it your own
+Results go to stdout, errors/diagnostics to stderr (never mixed). Exit codes:
+`0` success, `1` user error, `2` environment error (no reader, no permission),
+`3+` reserved.
 
-1. Rename the package `nfc_cli/` and the `nfc-cli`
-   CLI/dist name throughout `pyproject.toml`, the package, `tests/`,
-   `sonar-project.properties`, and this `README.md`. The name is hard-coded in
-   ~100 places, so list every occurrence first:
-   `git grep -nF -e 'nfc-cli' -e 'nfc_cli'`.
-2. Edit `culture.yaml` with your `suffix` and `backend`, and adjust its
-   `gate` section (below) to your project's setup and test commands.
-3. Rewrite `CLAUDE.md` for your agent and run `/init`. Rewrite the other three
-   harness files (`AGENTS.override.md` + `.pi/SYSTEM.md`, `AGENTS.colleague.md`,
-   `QWEN.md`) too if your agent uses those harnesses — don't let them drift out
-   of sync with `CLAUDE.md`.
-4. Re-vendor only the skills you need from guildmaster (see
-   [`docs/skill-sources.md`](docs/skill-sources.md)).
+Writes keep state on disk: snapshots in `~/.local/share/nfc-cli/snapshots`,
+write journals and `audit.log` in `~/.local/state/nfc-cli`.
 
-See [`CLAUDE.md`](CLAUDE.md) for the full conventions (version-bump-every-PR,
-the `cicd` PR lane, deploy setup).
+## MCP server
+
+`nfc-cli mcp` runs an MCP server on stdio (install `nfc-cli[mcp]`). Tools are
+named `noun_verb` (for example `tag_info`, `ndef_read`). Add it to an MCP
+client:
+
+```json
+{"mcpServers": {"nfc-cli": {"command": "nfc-cli", "args": ["mcp"]}}}
+```
+
+## Web console
+
+```bash
+nfc-cli ui serve                 # http://127.0.0.1:8770
+nfc-cli ui serve --fake x3       # simulated tag, no hardware
+```
+
+It binds loopback only unless `--bind-public` is given. Writes are guarded by
+an install secret kept in `~/.config/nfc-cli/web-secret`. Flags: `--host`,
+`--port`, `--bind-public`, `--fake SCENARIO`, `--json`.
 
 ## The `gate` section
 
