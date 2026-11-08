@@ -118,8 +118,8 @@ Results go to stdout, errors/diagnostics to stderr (never mixed). Exit codes:
 `0` success, `1` user error, `2` environment error (no reader, no permission),
 `3+` reserved.
 
-Writes keep state on disk: snapshots in `~/.local/share/nfc-cli/snapshots`,
-write journals and `audit.log` in `~/.local/state/nfc-cli`.
+Writes keep state on disk: snapshots in `$HOME/.local/share/nfc-cli/snapshots`,
+write journals and `audit.log` in `$HOME/.local/state/nfc-cli`.
 
 ## MCP server
 
@@ -139,7 +139,7 @@ nfc-cli ui serve --fake x3       # simulated tag, no hardware
 ```
 
 It binds loopback only unless `--bind-public` is given. Writes are guarded by
-an install secret kept in `~/.config/nfc-cli/web-secret`. Flags: `--host`,
+an install secret kept in `$HOME/.config/nfc-cli/web-secret`. Flags: `--host`,
 `--port`, `--bind-public`, `--fake SCENARIO`, `--json`.
 
 ## The `gate` section

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.6] - 2026-11-08
+
+### Fixed
+
+- Committed docs and the web e2e fixtures no longer hard-code `/home/<user>/` or `~/.dotfile` paths (they use `$HOME/.` forms), clearing the portability lint in the harness-smoke gate. (code review / CI)
+
 ## [0.12.5] - 2026-11-08
 
 ### Fixed

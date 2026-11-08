@@ -44,7 +44,7 @@ slug: `nfc-read-write-cli-web-ui` · status: `exported` · from frame: `nfc-read
 - acceptance:
   - tests/`test_dumpfile.py`: Dump(atr, uid, family, blocks/pages/sectors hex, `keys_used`) round-trips JSON and --format bin (raw bytes); files are created with mode 0600 even under a permissive umask
   - `mask_keys`() replaces key bytes in trailers and `keys_used` with asterisks; `to_dict`(`include_keys`=False) is the default and contains no key hex
-  - `snapshot_path`(uid) lives under `XDG_DATA_HOME`/nfc-cli/snapshots (fallback ~/.local/share), never inside the current git repo
+  - `snapshot_path`(uid) lives under `XDG_DATA_HOME`/nfc-cli/snapshots (fallback $HOME/.local/share), never inside the current git repo
   - tests/`test_journal.py`: Journal appends per-block records (block, old, new, written, verified) atomically, reloads, and reports pending blocks for resume
   - `nfc_cli`/nfc/`__init__.py`, if this task creates it, is an empty file (byte-identical across parallel wave-0 tasks)
 

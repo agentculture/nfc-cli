@@ -166,7 +166,7 @@
     {
       "id": "c9",
       "kind": "assumption",
-      "text": "UI verification uses the playwright MCP: node/npx are now installed in user space (Node v26.13.0 LTS under ~/.local/lib/nodejs, wrappers in ~/.local/bin; libatomic.so.1 extracted from the libatomic1 deb into ~/.local/lib/nodejs/lib via LD_LIBRARY_PATH in the node wrapper). The MCP needs a reconnect (/mcp) to pick it up; Chromium system libraries on aarch64 remain unverified (v1)",
+      "text": "UI verification uses the playwright MCP: node/npx are now installed in user space (Node v26.13.0 LTS under $HOME/.local/lib/nodejs, wrappers in $HOME/.local/bin; libatomic.so.1 extracted from the libatomic1 deb into $HOME/.local/lib/nodejs/lib via LD_LIBRARY_PATH in the node wrapper). The MCP needs a reconnect (/mcp) to pick it up; Chromium system libraries on aarch64 remain unverified (v1)",
       "origin": "llm",
       "status": "confirmed",
       "honesty_conditions": [],
@@ -175,7 +175,7 @@
       "instruction": "",
       "revisions": [
         {
-          "text": "UI verification uses the playwright MCP once it can launch: today it fails with ENOENT 'npx not found' because node is not installed (apt candidate nodejs 18.19.1 needs sudo); a user-space Node (tarball under ~/.local) or the Python playwright package is the likely fix, and Chromium's system libraries on aarch64 may still need root",
+          "text": "UI verification uses the playwright MCP once it can launch: today it fails with ENOENT 'npx not found' because node is not installed (apt candidate nodejs 18.19.1 needs sudo); a user-space Node (tarball under $HOME/.local) or the Python playwright package is the likely fix, and Chromium's system libraries on aarch64 may still need root",
           "kind": "assumption",
           "reason": ""
         }
@@ -473,7 +473,7 @@
     {
       "id": "c25",
       "kind": "requirement",
-      "text": "User decision 2026-11-08: web UI is React 18 + Vite 6 + TypeScript (embodiment/culture-nodes pattern); Node LTS installed in user space under ~/.local on the board so the build and the playwright MCP can run",
+      "text": "User decision 2026-11-08: web UI is React 18 + Vite 6 + TypeScript (embodiment/culture-nodes pattern); Node LTS installed in user space under $HOME/.local on the board so the build and the playwright MCP can run",
       "origin": "user",
       "status": "confirmed",
       "honesty_conditions": [
@@ -1624,7 +1624,7 @@
     {
       "id": "l18",
       "code": "control-absent",
-      "what": "t16: an early probe ran tag dump / ndef format / ndef write against the fake X3 without redirecting XDG dirs, writing into the user's real ~/.local/state/nfc-cli (audit.log with a fake surface=api record, journals) and ~/.local/share/nfc-cli/snapshots (one fake snapshot, unreported); agent deleted some files, the rest await the user's decision",
+      "what": "t16: an early probe ran tag dump / ndef format / ndef write against the fake X3 without redirecting XDG dirs, writing into the user's real $HOME/.local/state/nfc-cli (audit.log with a fake surface=api record, journals) and $HOME/.local/share/nfc-cli/snapshots (one fake snapshot, unreported); agent deleted some files, the rest await the user's decision",
       "skipped_check": "point XDG_* at the scratchpad before any probe that can write state",
       "refs": [
         "plan t16"

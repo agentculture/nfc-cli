@@ -17,11 +17,11 @@ over raw USB CCID (no PC/SC) and exposes one verb registry (`nfc_cli/registry.py
 - **MCP** — `nfc-cli mcp` (stdio; extra `nfc-cli[mcp]`); tools are `noun_verb`.
   Config: `{"mcpServers": {"nfc-cli": {"command": "nfc-cli", "args": ["mcp"]}}}`.
 - **Web console** — `nfc-cli ui serve` (default 127.0.0.1:8770; `--fake
-  SCENARIO`, `--bind-public`); install secret in `~/.config/nfc-cli/web-secret`.
+  SCENARIO`, `--bind-public`); install secret in `$HOME/.config/nfc-cli/web-secret`.
 
 Optional extras: `usb` (pyusb), `mcp`, `all`; the base runtime has no
-dependencies. State: snapshots in `~/.local/share/nfc-cli/snapshots`, write
-journals and `audit.log` in `~/.local/state/nfc-cli`. Setting
+dependencies. State: snapshots in `$HOME/.local/share/nfc-cli/snapshots`, write
+journals and `audit.log` in `$HOME/.local/state/nfc-cli`. Setting
 `NFC_CLI_FAKE=x3` runs the CLI against a simulated tag (use it, with
 `XDG_STATE_HOME`/`XDG_DATA_HOME` pointed at a throwaway dir, for any testing).
 The repo was scaffolded from `culture-agent-template`, hence the agent-first

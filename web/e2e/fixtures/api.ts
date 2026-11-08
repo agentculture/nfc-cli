@@ -81,8 +81,8 @@ function writeResult(
     applied,
     diff,
     summary: { write: writes, unchanged: diff.length - writes, skip: 0 },
-    snapshot: applied ? `/home/user/.local/share/nfc-cli/snapshots/${uid}-20261108T120000Z.json` : null,
-    journal: applied ? `/home/user/.local/state/nfc-cli/journals/${uid}-20261108T120000Z.journal` : null,
+    snapshot: applied ? `~/.local/share/nfc-cli/snapshots/${uid}-20261108T120000Z.json` : null,
+    journal: applied ? `~/.local/state/nfc-cli/journals/${uid}-20261108T120000Z.journal` : null,
     verified: applied ? writes : 0,
     protected_blocks_written: [],
     ...extra,
@@ -159,7 +159,7 @@ function x3Verbs(): Record<string, VerbHandler> {
       const extra = apply
         ? {
             protected_blocks_written: Array.from({ length: 16 }, (_, s) => s * 4 + 3),
-            audit_log: "/home/user/.local/state/nfc-cli/audit.log",
+            audit_log: "~/.local/state/nfc-cli/audit.log",
           }
         : {};
       return ok(writeResult(X3_UID, "classic_1k", "ndef_format", diff, apply, extra));
@@ -206,7 +206,7 @@ function x3Verbs(): Record<string, VerbHandler> {
     },
     "tag/dump": () =>
       ok({
-        path: `/home/user/.local/share/nfc-cli/dumps/${X3_UID}-20261108T120000Z.json`,
+        path: `~/.local/share/nfc-cli/dumps/${X3_UID}-20261108T120000Z.json`,
         format: "json",
         blocks_read: 64,
         unreadable_sectors: [],

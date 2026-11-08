@@ -54,7 +54,7 @@
   - honesty: fake-card tests cover auth with each key type and dictionary fallback; live X3 dump reads 16/16 sectors
 - User decision 2026-11-08: write-back to the Xteink X3 means both byte-exact dump/restore and writing new NDEF records (URL/text)
   - honesty: live: restore and NDEF write both read back identical on the X3
-- User decision 2026-11-08: web UI is React 18 + Vite 6 + TypeScript (embodiment/culture-nodes pattern); Node LTS installed in user space under ~/.local on the board so the build and the playwright MCP can run
+- User decision 2026-11-08: web UI is React 18 + Vite 6 + TypeScript (embodiment/culture-nodes pattern); Node LTS installed in user space under $HOME/.local on the board so the build and the playwright MCP can run
   - honesty: npm run build produces web/dist on the board with the user-space Node
 - RF coupling with the X3 is marginal (detected only after ~18 s of repositioning, dropped out between runs): tag verbs need --wait/--timeout to poll for presence, and dump/restore must resume per sector after dropouts and verify every write by reading back
   - honesty: a fake-card test drops the card mid-dump and the dump resumes and completes; every write is followed by a read-back compare
@@ -118,7 +118,7 @@
 ## Assumptions
 
 - The arduino user opens the reader without root only via systemd-logind uaccess: udev tags the device ':security-device:seat:systemd:uaccess:' and the ACL follows the active seat0 session (tty2 today). A headless boot, SSH-only use, or a system service has no seat session and gets EACCES — so permission failures map to exit 2 with a remediation that ships a udev rule (072f:2303 -> GROUP/MODE) in docs
-- UI verification uses the playwright MCP: node/npx are now installed in user space (Node v26.13.0 LTS under ~/.local/lib/nodejs, wrappers in ~/.local/bin; libatomic.so.1 extracted from the libatomic1 deb into ~/.local/lib/nodejs/lib via `LD_LIBRARY_PATH` in the node wrapper). The MCP needs a reconnect (/mcp) to pick it up; Chromium system libraries on aarch64 remain unverified (v1)
+- UI verification uses the playwright MCP: node/npx are now installed in user space (Node v26.13.0 LTS under $HOME/.local/lib/nodejs, wrappers in $HOME/.local/bin; libatomic.so.1 extracted from the libatomic1 deb into $HOME/.local/lib/nodejs/lib via `LD_LIBRARY_PATH` in the node wrapper). The MCP needs a reconnect (/mcp) to pick it up; Chromium system libraries on aarch64 remain unverified (v1)
 - Confirmed on hardware 2026-11-08: the Xteink X3 NFC is a MIFARE Classic 1K (PC/SC ATR 3b8f8001804f0ca000000306030001000000006a, SS=03 ISO14443A-3, card name 0001), UID cb30c560 (4-byte, BCC 5e), SAK 08 / ATQA 0004 in block 0
 - Block 0 manufacturer data reads 6263646566676869 ('bcdefghi'), the signature of Chinese MIFARE Classic clones commonly sold as UID-changeable 'magic' cards (gen1a/CUID); this fits Xteink's reported 'card emulation for personal access cards' feature — i.e. the X3 may be meant to receive a cloned access card including its UID
 - NDEF on MIFARE Classic (the X3 and the transparent sticker) requires formatting per the NFC Forum / NXP MIFARE Classic NDEF mapping: MAD in sector 0 with key A A0A1A2A3A4A5 and NDEF sectors with key A D3F7D3F7D3F7 and NDEF access bits — i.e. writing sector trailers, which c23 forbids without --include-trailers (from memory of NXP AN1304/AN1305, not re-read this session)
