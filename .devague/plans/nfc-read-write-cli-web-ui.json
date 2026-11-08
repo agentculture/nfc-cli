@@ -1,0 +1,1032 @@
+{
+  "slug": "nfc-read-write-cli-web-ui",
+  "title": "nfc read-write cli + web ui",
+  "frame_slug": "nfc-read-write-cli-web-ui",
+  "schema_version": 5,
+  "status": "exported",
+  "created": "2026-11-08T15:54:17Z",
+  "updated": "2026-11-08T16:30:24Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "nfc-cli reads and writes every NFC tag family through the attached ACS ACR1552 over raw USB CCID \u2014 no pcscd, no root \u2014 so the operator can dump an Xteink X3's NFC memory and write it back, from an agent-first CLI or a beautiful local web UI built to Culture standards",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "every verb in the after_state runs on the board against the real X3 and the outputs are recorded in the PR",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c2",
+      "kind": "requirement",
+      "text": "Transport talks USB CCID to the ACR1552 (072f:2303) directly via pyusb + libusb-1.0: PICC interface 0, bulk EP 0x01/0x81; PC_to_RDR_XfrBlock for APDUs, PC_to_RDR_Escape for reader commands \u2014 probed live: GetSlotStatus, IccPowerOn, Escape E000001800 returned 'ACR1552 R FW 1.06.02'",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "a test drives the CCID framing (XfrBlock/Escape/time-extension) against a fake USB endpoint, and 'reader info' on the board returns the ACR1552 firmware string",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c4",
+      "kind": "boundary",
+      "text": "pcscd/pyscard are not required: not installed (which pcscd empty, import smartcard fails) and sudo needs a password; a PC/SC backend may be added optionally later but the default USB backend must work on this host without it",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "the full test suite and live run succeed with no smartcard module and no pcscd process",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c5",
+      "kind": "requirement",
+      "text": "pyusb is added as an optional extra (not a base dependency) per the culture-rules zero-runtime-deps precedent; recorded in CHANGELOG and the four prompt files, whose 'no NFC functionality' status text must be updated",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "pip install nfc-cli (no extras) imports and runs identity verbs; tag verbs without the usb extra exit 2 with an install hint",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "New noun groups reader/tag/ndef (and ui) register in cli/__init__.py _build_parser via register(sub); every verb supports --json, each noun exposes overview, every path gets an explain ENTRIES entry, learn/overview list them; teken cli doctor --strict stays green",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "teken cli doctor . --strict passes and 'nfc-cli explain <path>' resolves for every registered path (test enumerates the parser)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "Hardware failures (no reader, permission denied, no card, card removed, auth failure, APDU status != 9000) are caught in handlers and raised as CliError with EXIT_ENV_ERROR (2) and a concrete hint; library exceptions never reach _dispatch, which would mislabel them EXIT_USER_ERROR with 'file a bug'",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "tests inject each failure (no device, EACCES, no card, card removed, auth fail, SW!=9000) and assert exit 2 with a hint: line and no traceback",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c8",
+      "kind": "requirement",
+      "text": "Tests run without hardware: transport is injectable and a fake CCID/tag simulator backs CLI tests, keeping pytest -n auto green on GitHub ubuntu-latest (no reader) with coverage >= 60%",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "CI (ubuntu-latest, no reader) passes pytest -n auto with coverage >= 60%",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c10",
+      "kind": "requirement",
+      "text": "Web UI visual direction is set with the frontend-design skill (frontend-design:frontend-design), layered on top of whatever Culture/embodiment standard mandates, so it reads as intentional rather than templated",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "the UI design rationale names the frontend-design direction and uses only culture-design tokens for color/type",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c11",
+      "kind": "requirement",
+      "text": "Live hardware evidence: before claiming done, read the actual Xteink X3 (and at least one other tag) through the CLI and the UI on this board; slot is currently empty (GetSlotStatus bStatus=0x02, no ICC present)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "PR description contains live outputs from the X3 and at least one other tag or reports none was available",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c12",
+      "kind": "requirement",
+      "text": "Base install stays zero-third-party-dependency: pyusb (usb) and any web server stack sit behind optional extras (e.g. nfc-cli[usb], nfc-cli[web]) imported lazily; a missing extra raises CliError EXIT_ENV_ERROR with an install hint \u2014 mirroring culture-rules serve.py",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "a test pins the base runtime dependency set to empty; each extra is imported lazily inside the verb",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c13",
+      "kind": "requirement",
+      "text": "Tag-mutating verbs (write, restore, ndef write, format/lock) are dry-run by default and only touch the tag with --apply; dry-run reports exactly which pages/blocks would change (diff against current contents)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h11",
+      "kind": "honesty",
+      "text": "a test shows write/restore/ndef write without --apply sends zero write APDUs and prints the planned diff",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c14",
+      "kind": "requirement",
+      "text": "UI uses culture-design tokens: a verbatim, hash-pinned copy of agentculture/org site-astro/src/styles/global.css (embodiment pins b4d939ba0aa354a5ae53065319a773e0013de698), with a check script byte-comparing it to the pin, self-hosted fonts (Fraunces display, Albert Sans body; no CDN), and a build check that dist/ references no external origin; frontend-design guides composition on top of these tokens",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "a check script byte-compares tokens.css to the pinned org source hash and fails on a one-byte edit; dist/ contains no external origin",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c16",
+      "kind": "requirement",
+      "text": "UI is agent-first: root renders <script type=application/json id=agent-state> (status, view_ready, route, identity, errors, plus reader/card state) so agents and playwright can drive it; accessibility bar copied from culture-rules: skip link, full keyboard reach, visible focus, 44x44 targets, state announced in words not color, prefers-reduced-motion, axe zero serious/critical",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "playwright reads #agent-state and waits on view_ready; axe reports zero serious/critical violations",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c17",
+      "kind": "requirement",
+      "text": "UI e2e tests run Playwright against a mocked API / fake reader (no hardware, no Python server) with axe, matching culture-rules e2e/fixtures/api.ts; CI builds the bundle before uv build",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h14",
+      "kind": "honesty",
+      "text": "npm run test:e2e passes in CI without a reader or Python server",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c18",
+      "kind": "requirement",
+      "text": "Python side serves the UI with stdlib http.server.ThreadingHTTPServer (zero new runtime deps): static bundle at /, JSON API under /api/ (reader status, tag info/read/write/dump/restore, ndef read/write), loopback-only by default with resolve_bind refusing routable addresses unless --bind-public, own default port distinct from embodiment's 8823 and culture-rules' 8765/8791/8796",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h15",
+      "kind": "honesty",
+      "text": "a test starts the server on an ephemeral loopback port, fetches / and /api/reader, and a non-loopback --host without --bind-public exits 1 with a hint",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c19",
+      "kind": "requirement",
+      "text": "Mutating /api/ endpoints are guarded: install secret in a 0600 file sent as Authorization header plus Host/Origin allow-list \u2014 loopback is not authentication (embodiment CLAUDE.md:362), and a browser tab on another origin must not be able to write a tag via DNS rebinding/CSRF",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h16",
+      "kind": "honesty",
+      "text": "tests show a mutating /api/ call without the secret or with a foreign Origin/Host is refused (401/403) and sends no APDU",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c20",
+      "kind": "requirement",
+      "text": "Wheel build runs the frontend build (hatch_build.py: npm ci && npm run build) and force-includes web/dist as nfc_cli/web/dist (gitignored), with a test that the wheel ships the dashboard; a checkout without dist degrades to a one-line text page while /api/ stays up",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h17",
+      "kind": "honesty",
+      "text": "a test builds the wheel and asserts nfc_cli/web/dist/index.html is inside it; with dist missing, / serves a text page and /api/ still answers",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c22",
+      "kind": "requirement",
+      "text": "MIFARE Classic support is first-class: load key, authenticate per sector with key A/B, try a default key dictionary (FFFFFFFFFFFF, A0A1A2A3A4A5, D3F7D3F7D3F7, 000000000000), read/write data blocks, decode MAD + NDEF (sector 0 MAD with A0A1A2A3A4A5, NDEF sectors with D3F7D3F7D3F7), and dump/restore whole cards to a file",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h18",
+      "kind": "honesty",
+      "text": "fake-card tests cover auth with each key type and dictionary fallback; live X3 dump reads 16/16 sectors",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c23",
+      "kind": "boundary",
+      "text": "Restore never writes sector trailers (block 3 of each sector) or manufacturer block 0 unless --include-trailers is passed explicitly; the single sanctioned exception is 'ndef format', which writes trailers only from the fixed, parity-checked NFC-Forum template (user decision 2026-11-08)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h19",
+      "kind": "honesty",
+      "text": "a test restores a dump containing modified trailers and asserts no trailer/block-0 write APDU is sent without --include-trailers",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c24",
+      "kind": "requirement",
+      "text": "User decision 2026-11-08: write-back to the Xteink X3 means both byte-exact dump/restore and writing new NDEF records (URL/text)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h20",
+      "kind": "honesty",
+      "text": "live: restore and NDEF write both read back identical on the X3",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c25",
+      "kind": "requirement",
+      "text": "User decision 2026-11-08: web UI is React 18 + Vite 6 + TypeScript (embodiment/culture-nodes pattern); Node LTS installed in user space under ~/.local on the board so the build and the playwright MCP can run",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h21",
+      "kind": "honesty",
+      "text": "npm run build produces web/dist on the board with the user-space Node",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c27",
+      "kind": "requirement",
+      "text": "RF coupling with the X3 is marginal (detected only after ~18 s of repositioning, dropped out between runs): tag verbs need --wait/--timeout to poll for presence, and dump/restore must resume per sector after dropouts and verify every write by reading back",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h22",
+      "kind": "honesty",
+      "text": "a fake-card test drops the card mid-dump and the dump resumes and completes; every write is followed by a read-back compare",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c28",
+      "kind": "requirement",
+      "text": "MCP server: 'nfc-cli mcp' serves every CLI verb as an MCP tool over stdio (optional 'mcp' extra, lazily imported, mcp>=1.2,<2), tools named <noun>_<verb>, mutating tools dry-run unless apply is exactly JSON true, and a parity test keeps CLI and MCP surfaces identical \u2014 so agents can drive the reader via CLI or MCP",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h23",
+      "kind": "honesty",
+      "text": "a parity test asserts the set of MCP tool names equals the set of CLI verb paths and that mutating tools dry-run without apply=true",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c29",
+      "kind": "requirement",
+      "text": "CLI verbs are defined once in a registry (name, summary, params schema, mutating flag, handler) that argparse, the MCP server, and the web UI's /api/ all consume, so the three surfaces cannot drift (culture-rules cli/registry.py pattern)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h24",
+      "kind": "honesty",
+      "text": "CLI argparse, MCP tool_specs and /api/ routes are all generated from the same registry object (single source asserted in a test)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c30",
+      "kind": "audience",
+      "text": "The operator (Ori) at the VENTUNO Q board, and AgentCulture agents driving the reader through the nfc-cli CLI or its MCP server; humans additionally through the local web UI",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h25",
+      "kind": "honesty",
+      "text": "learn/explain/README mention CLI, MCP and web UI surfaces",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c31",
+      "kind": "before_state",
+      "text": "Today nfc-cli is the bare culture-agent-template: identity verbs only, no NFC code, dependencies = []; reading the X3 took hand-written scratchpad pyusb scripts",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h26",
+      "kind": "honesty",
+      "text": "git show main shows no NFC modules and dependencies = []",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c32",
+      "kind": "why_it_matters",
+      "text": "Agents and the operator can inspect, back up, and program NFC tags (the X3 first) safely and repeatably, without root, pcscd, or ad-hoc scripts, through whichever surface fits \u2014 CLI, MCP, or browser",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h27",
+      "kind": "honesty",
+      "text": "the X3 workflow completes end-to-end with no root, no pcscd and no scratchpad scripts",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c33",
+      "kind": "after_state",
+      "text": "On the board, 'nfc-cli tag info --wait 30' identifies the X3; 'tag dump' saves it to a file; 'tag restore FILE --apply' and 'ndef write --uri ... --apply' write it back and verify by read-back; the same verbs work as MCP tools and in the web UI served by 'nfc-cli ui serve'",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h28",
+      "kind": "honesty",
+      "text": "each step of the after_state is reproduced live on the board",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c34",
+      "kind": "requirement",
+      "text": "Tag families (per ACR1552 manual 1.09 \u00a71 + read/update-binary address tables): ISO14443A \u2014 MIFARE Classic 1K/4K/Mini (sectors/keys), MIFARE Ultralight/NTAG21x (Type 2 pages), Topaz (Type 1); ISO14443-4 A and B \u2014 Type 4 / T=CL via raw APDUs + NDEF app D2760000850101; ISO14443B-3 proprietary \u2014 SRI/SRIX (SRIX4K/SRT512), Picopass/iCLASS-legacy blocks, CTS, Innovatron; ISO15693 \u2014 Type 5 blocks; ISO/IEC 18092 NFC-F \u2014 FeliCa (Type 3) reads. Family detected from the PC/SC ATR (SS byte + card-name bytes, incl. Picopass 3B8F8001804F0CA0000003060600xx); polling types the reader skips by default (Topaz, SRI, Innovatron, Picopass-15693, CTS) are enabled only via the snapshot-and-restore boundary",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h29",
+      "kind": "honesty",
+      "text": "detection unit tests pass for a recorded ATR per family; each family's read path has a fake-card test",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h41",
+      "kind": "honesty",
+      "text": "detection unit tests pass for a recorded/manual ATR per family (incl. Picopass, SRIX, FeliCa, ISO15693); each family's read path has a fake-card test",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c35",
+      "kind": "requirement",
+      "text": "Command surface: reader list|info|overview; tag info|uid|wait|read|write|dump|restore|apdu|overview (Classic keys via --key/--key-type/--keys-file); ndef read|write (--text/--uri/--mime/--raw-file)|erase|overview; ui serve|overview; mcp; dump format is JSON (atr, uid, family, per-sector/page hex, keys used) with a --format bin option",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h30",
+      "kind": "honesty",
+      "text": "the parser tree matches the listed surface and each path has an explain entry",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c36",
+      "kind": "success_signal",
+      "text": "teken cli doctor . --strict passes, pytest -n auto passes with coverage >= 60% without hardware, and the CLI/MCP parity test passes",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h31",
+      "kind": "honesty",
+      "text": "the three commands run green locally and in CI",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c37",
+      "kind": "success_signal",
+      "text": "On real hardware: the X3 dump has 16/16 sectors read, an NDEF URI write followed by ndef read returns the same URI, and a restore of the original blank dump reads back byte-identical (64/64 blocks, trailers excluded)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h32",
+      "kind": "honesty",
+      "text": "live outputs for the three checks are recorded in the PR",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c38",
+      "kind": "success_signal",
+      "text": "Web UI: Playwright e2e passes against the mocked API with 0 serious/critical axe violations, and a live playwright-MCP session against 'nfc-cli ui serve' shows the X3 card info",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h33",
+      "kind": "honesty",
+      "text": "e2e + axe results and a playwright-MCP screenshot are attached to the PR",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c43",
+      "kind": "requirement",
+      "text": "Reader access is exclusive (probe: second process claiming interface 0 gets USBError 16 Resource busy). Every operation claims and releases the interface, an advisory lock file under $XDG_RUNTIME_DIR records the holder (pid + command), and a busy reader raises CliError exit 2 naming the holder (e.g. 'nfc-cli ui serve', or pcscd if installed later) instead of a raw USBError; ui serve and mcp never hold the interface between operations",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h35",
+      "kind": "honesty",
+      "text": "a test holds the lock/claim in one process and asserts a second CLI call exits 2 naming the holder; live: tag info works while ui serve is idle",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c44",
+      "kind": "requirement",
+      "text": "Before any --apply write (write, restore, ndef write/erase/format) the current readable contents of the target tag are snapshotted to a timestamped dump file (0600, under the user data dir) and its path is printed; 'tag restore SNAPSHOT --apply' is the documented rollback",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h36",
+      "kind": "honesty",
+      "text": "fake-card test: --apply write creates the snapshot file (mode 0600) before the first write APDU; snapshot failure aborts with zero writes",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c45",
+      "kind": "requirement",
+      "text": "Writes are journaled: each block/page write is followed by a read-back compare and appended to a per-operation journal; an interrupted restore (card lifted, USB error) reports written/verified/pending blocks and 'tag restore --resume JOURNAL' completes it",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h37",
+      "kind": "honesty",
+      "text": "fake-card test removes the card mid-restore; journal lists pending blocks and --resume completes to a byte-identical read-back",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c47",
+      "kind": "requirement",
+      "text": "Dumps and journals contain sector keys/trailers: files are written 0600, keys are masked in text output and traces, and MCP/API responses redact key bytes unless the caller passes include_keys; dumps never land inside the repo tree by default (scan-secrets would not catch binary/hex keys)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h38",
+      "kind": "honesty",
+      "text": "tests assert file mode 0600 and that text/--trace/MCP/API outputs contain no key bytes without include_keys",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c48",
+      "kind": "boundary",
+      "text": "Reader configuration is read-mostly: the CLI may read reader settings and set the PICC polling type only with snapshot-then-restore in an independent step that verifies by read-back; it never sets the HID keyboard / operating mode (E0 00 00 9x), because 'Only HID Keyboard' mode removes the CCID interface the CLI depends on",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h39",
+      "kind": "honesty",
+      "text": "a test asserts no E0 00 00 9x escape is ever constructed; live: polling type reads 07 05 after any config-changing command",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c49",
+      "kind": "requirement",
+      "text": "Observability: --trace prints every APDU/escape exchanged (direction, bytes, SW, timing) to stderr with key bytes masked, available on every tag/reader/ndef verb and as a server/MCP log option",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h40",
+      "kind": "honesty",
+      "text": "--trace output on a fake read shows each APDU with masked keys",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c54",
+      "kind": "requirement",
+      "text": "Trailer-writing operations over MCP and the web API (ndef format, restore with include_trailers) require apply=true AND the explicit include_trailers=true / format=true argument, and every such call is appended to an audit log (timestamp, surface, tag UID, blocks)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h43",
+      "kind": "honesty",
+      "text": "MCP and API tests show a trailer-writing call with apply=true but without include_trailers/format sends no write APDU, and a permitted call appends an audit-log line",
+      "deferred": false,
+      "deferred_reason": ""
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Transport: CCID over pyusb with lock, trace and typed errors (nfc_cli/nfc/transport.py, nfc_cli/nfc/errors.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tests/test_transport.py drives PC_to_RDR_XfrBlock, PC_to_RDR_Escape, GetSlotStatus, IccPowerOn/Off framing against a fake USB endpoint, including bStatus time-extension (bits 7:6 = 2) retries and sequence-number matching",
+        "a Transport protocol (power_on -> ATR bytes, transmit(apdu) -> (data, sw1sw2), escape(cmd), present() -> bool, close) is defined and UsbCcidTransport implements it; nothing outside transport.py imports usb",
+        "claim is per-operation via a context manager; an advisory lock file under XDG_RUNTIME_DIR (fallback tmp dir) records pid + argv; a second holder raises ReaderBusy naming the holder; USBError errno 16 also maps to ReaderBusy",
+        "errors.py defines NfcError subclasses ReaderNotFound, ReaderPermission (EACCES, hint names udev rule docs), ReaderBusy, NoCard, CardRemoved, AuthFailed, ApduError(sw), each with a remediation string; no smartcard/pcsc import anywhere",
+        "trace hook: when enabled every exchange is written to a stream as direction, hex, SW, ms; bytes following FF82 load-key APDUs are masked as ** in trace output (test asserts no key hex appears)",
+        "nfc_cli/nfc/__init__.py, if this task creates it, is an empty file (byte-identical across parallel wave-0 tasks)"
+      ],
+      "deps": [],
+      "covers": [
+        "c2",
+        "h2",
+        "c43",
+        "h35",
+        "c49",
+        "h40",
+        "c4",
+        "h3"
+      ],
+      "instruction": "Port the framing from the session probes (CCID header struct '<BIBB3B', bulk EP 0x01 out / 0x81 in, interface 0, vendor 072f product 2303; select device by --reader index or bus:addr). Import usb lazily inside UsbCcidTransport.__init__ so the module imports without pyusb. Keep it pure: no CLI imports."
+    },
+    {
+      "id": "t2",
+      "summary": "ATR parser and tag-family detection (nfc_cli/nfc/atr.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tests/test_atr.py: parse() of 3b8f8001804f0ca000000306030001000000006a returns standard ISO14443A-3, card_name 0x0001, family classic_1k (the live X3 ATR)",
+        "recorded/manual ATRs map to families: Classic 4K 0002, Mini 0026, Ultralight/NTAG 0003, Ultralight C 003A, Topaz 0030, FeliCa 003B/0014/0015, ISO15693 (SS 0B or 07 per PC/SC part 3), Picopass SS 06 card names 001B-001D, SRIX, and a non-RID ATR -> iso14443_4 (Type 4 candidate) carrying historical bytes",
+        "the ATR TCK checksum is validated and a bad checksum yields family unknown rather than an exception",
+        "nfc_cli/nfc/__init__.py, if this task creates it, is an empty file (byte-identical across parallel wave-0 tasks)"
+      ],
+      "deps": [],
+      "covers": [
+        "c34",
+        "h29",
+        "h41"
+      ],
+      "instruction": "PC/SC Part 3 supplemental document layout: 3B 8F 80 01 80 4F 0C A0 00 00 03 06 SS NN NN 00 00 00 00 TCK. Return a frozen dataclass. Pure function, no I/O."
+    },
+    {
+      "id": "t3",
+      "summary": "NDEF codec + MIFARE Classic NDEF/MAD format template (nfc_cli/nfc/ndef.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tests/test_ndef.py: encode/decode round-trips Well-Known Text (lang + UTF-8), URI with prefix-code compression (e.g. https://www. -> 0x02), MIME and raw records, multi-record messages with MB/ME/SR/IL flags",
+        "TLV wrap/unwrap (03 NDEF, FE terminator, 3-byte long length) and Type 2 Capability Container helpers",
+        "classic_format_template() returns MAD1 sector 0 contents (key A A0A1A2A3A4A5, MAD CRC computed) and NDEF sector trailers (key A D3F7D3F7D3F7, NFC-Forum access bits) and validate_access_bits() rejects any trailer whose access-bit inverted copies do not match (test with one flipped bit)",
+        "nfc_cli/nfc/__init__.py, if this task creates it, is an empty file (byte-identical across parallel wave-0 tasks)"
+      ],
+      "deps": [],
+      "covers": [],
+      "instruction": "Pure module, no I/O. Compute the MAD CRC-8 (poly 0x1D, init 0xC7) as in NXP AN10787. Access bits for NDEF sectors: 7F 07 88 with GPB 0x40; sector 0: 78 77 88 with GPB 0xC1 \u2014 verify against the access-bit parity rule in a test rather than trusting constants."
+    },
+    {
+      "id": "t4",
+      "summary": "Dump file format, key masking, snapshots and write journal (nfc_cli/nfc/dumpfile.py, nfc_cli/nfc/journal.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tests/test_dumpfile.py: Dump(atr, uid, family, blocks/pages/sectors hex, keys_used) round-trips JSON and --format bin (raw bytes); files are created with mode 0600 even under a permissive umask",
+        "mask_keys() replaces key bytes in trailers and keys_used with asterisks; to_dict(include_keys=False) is the default and contains no key hex",
+        "snapshot_path(uid) lives under XDG_DATA_HOME/nfc-cli/snapshots (fallback ~/.local/share), never inside the current git repo",
+        "tests/test_journal.py: Journal appends per-block records (block, old, new, written, verified) atomically, reloads, and reports pending blocks for resume",
+        "nfc_cli/nfc/__init__.py, if this task creates it, is an empty file (byte-identical across parallel wave-0 tasks)"
+      ],
+      "deps": [],
+      "covers": [
+        "c47",
+        "h38"
+      ],
+      "instruction": "Data-only modules: no transport imports. Journal is append-only JSON lines with fsync per record."
+    },
+    {
+      "id": "t5",
+      "summary": "Verb registry and Context (nfc_cli/registry.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tests/test_registry.py: Verb(noun, verb, summary, params JSON-schema, mutating, handler) registers into REGISTRY; tool_name is noun_verb; params_schema() is valid JSON Schema with apply added only for mutating verbs",
+        "Context carries apply (bool), trace stream, transport factory, include_keys; handlers receive Context and return JSON-serialisable dicts",
+        "helpers build an argparse subparser and an MCP tool spec and an /api/ route name from the same Verb (single source asserted by a test that compares all three for a sample verb)"
+      ],
+      "deps": [],
+      "covers": [
+        "c29",
+        "h24"
+      ],
+      "instruction": "Model on culture-rules culture_rules/cli/registry.py and culture_rules/mcp/tools.py (cite, don't import). Boolean params must be JSON booleans when called via MCP/API; strings like 'false' are refused."
+    },
+    {
+      "id": "t6",
+      "summary": "Packaging: optional extras, wheel build hook, CI/publish with Node (pyproject.toml, uv.lock, hatch_build.py, .github/workflows/*.yml)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "pyproject: dependencies = [] stays; extras usb = [pyusb>=1.2], mcp = [mcp>=1.2,<2], all = both; the earlier uncommitted base-dependency pyusb change is reverted",
+        "tests/test_zero_deps.py pins the base runtime dependency set to empty and asserts importing nfc_cli and running whoami works with usb/mcp import blocked",
+        "hatch_build.py runs npm ci && npm run build in web/ only when web/ exists and dist is stale (bounded timeouts, named failure), skips cleanly when NFC_CLI_SKIP_WEB_BUILD=1; dist is force-included as nfc_cli/web/dist; tests/test_wheel_ships_ui.py builds a wheel (skipped when npm absent) and asserts nfc_cli/web/dist/index.html is inside",
+        "tests.yml and publish.yml set up Node 22 before uv sync/uv build and add a web job running npm ci, typecheck, vitest and playwright e2e"
+      ],
+      "deps": [],
+      "covers": [
+        "c5",
+        "h4",
+        "c12",
+        "h10",
+        "c20",
+        "h17"
+      ],
+      "instruction": "Cite embodiment hatch_build.py (staleness check, NPM_CI_TIMEOUT_S) \u2014 copy, adapt, credit in a header comment. Keep the existing lint job untouched except adding Node. Do not bump the version here (the docs task does)."
+    },
+    {
+      "id": "t7",
+      "summary": "Fake reader and card simulators for hardware-free tests (nfc_cli/nfc/fake.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "FakeTransport implements the t1 Transport protocol and simulates MIFARE Classic 1K (keys, trailers, access bits, auth state, block 0 read-only unless magic=True), NTAG215 Type 2 (pages, CC), ISO15693 (4-byte blocks), and a Type 4 tag answering SELECT/READ BINARY/UPDATE BINARY for the NDEF app",
+        "fault injection: card_removed_after(n_apdus), auth_fail, sw override, busy \u2014 used by later tests; tests/test_fake.py exercises each",
+        "fake.load_scenario('x3') reproduces the live X3 (ATR 3b8f...6a, UID cb30c560, block 0 cb30c5605e0804006263646566676869, blank sectors, transport trailers)"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c8"
+      ],
+      "instruction": "Lives in the package (not tests/) so 'nfc-cli ui serve --fake' and the frontend dev server can use it. Respond to the same pseudo-APDUs the ACR1552 uses: FF CA (UID), FF 82 (load key), FF 86 (auth), FF B0 (read), FF D6 (update)."
+    },
+    {
+      "id": "t8",
+      "summary": "MIFARE Classic operations (nfc_cli/nfc/classic.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tests/test_classic.py against FakeTransport: authenticate(sector, key, A|B), read_block, write_block, read_sector; key dictionary fallback tries FFFFFFFFFFFF, A0A1A2A3A4A5, D3F7D3F7D3F7, 000000000000 then --keys-file entries, re-selecting the card after a failed auth",
+        "write_block refuses trailer blocks and block 0 unless allow_trailer=True, and with allow_trailer it calls ndef.validate_access_bits first and refuses invalid trailers with zero write APDUs",
+        "4K layout handled (32x4 + 8x16 blocks) via sector_of(block) / first_block(sector) helpers with unit tests"
+      ],
+      "deps": [
+        "t1",
+        "t3",
+        "t2"
+      ],
+      "covers": [
+        "c22",
+        "h18"
+      ],
+      "instruction": "Pseudo-APDUs: FF 82 00 00 06 key (load to slot 0), FF 86 00 00 05 01 00 block 60|61 00, FF B0 00 block 10, FF D6 00 block 10 data. After a failed auth power-cycle (IccPowerOff/On) before trying the next key \u2014 the live probe needed this."
+    },
+    {
+      "id": "t9",
+      "summary": "Other tag families: Type 2, ISO15693, Type 4, FeliCa, Topaz, SRIX/Picopass/CTS block access (nfc_cli/nfc/families.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tests/test_families.py against FakeTransport: Type 2 page read (FF B0 00 page 10 = 4 pages) / page write (FF D6 00 page 04) with memory size from CC; ISO15693 block read/write with block size discovery; Type 4 NDEF read/write via SELECT D2760000850101, CC E103, NDEF file",
+        "FeliCa, Topaz, SRIX, Picopass and CTS expose read-only block reads using the address ranges in ACR1552 manual 1.09 (Read Binary table); writes for these families raise UnsupportedOperation with a clear message rather than guessing",
+        "a family_ops(family) dispatcher returns the right ops object for every family atr.py can emit"
+      ],
+      "deps": [
+        "t1",
+        "t3",
+        "t2"
+      ],
+      "covers": [
+        "c34",
+        "h41"
+      ],
+      "instruction": "Keep each family a small class in one file to stay file-disjoint from classic.py. Manual text is at the session scratchpad acs/acr1552.txt (re-extract with pdftotext from the ACS site if missing)."
+    },
+    {
+      "id": "t10",
+      "summary": "Reader info and safe reader configuration (nfc_cli/nfc/reader.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tests/test_reader.py: firmware() sends escape E000001800 and decodes ASCII after E1000000 + len; polling_type() reads E000012000 -> named protocol set; slot_status() decodes present/absent",
+        "with_polling_type(mask) is a context manager that snapshots, sets, and on exit restores in a fresh claim then verifies by read-back, raising if verification fails (test simulates a busy first restore)",
+        "a test scans reader.py source/AST and the escape builder to assert no command starting E0 00 00 9 (keyboard/operating mode) can be constructed"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c48",
+        "h39"
+      ],
+      "instruction": "Lesson from lapse l1: the restore must not depend on the caller's handle \u2014 release, re-claim, restore, read back."
+    },
+    {
+      "id": "t11",
+      "summary": "High-level operations + verb registrations: dry-run diff, snapshot, journaled read-back writes, resume (nfc_cli/nfc/ops.py, nfc_cli/verbs.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tests/test_ops.py: info, read, dump (per-sector resume after injected card removal), write, restore, ndef_read, ndef_write, ndef_erase, ndef_format, wait(timeout) all run against FakeTransport",
+        "every mutating op with apply=False sends zero write APDUs (assert via FakeTransport counters) and returns a per-block diff; with apply=True it writes a 0600 snapshot before the first write APDU and aborts with zero writes if the snapshot fails",
+        "restore skips trailers and block 0 (listed as skipped in the diff) unless include_trailers=True; ndef_format is the only path writing trailers and only via ndef.classic_format_template",
+        "each write is followed by read-back compare and journaled; an injected dropout leaves a journal whose pending list --resume completes to byte-identical read-back",
+        "nfc_cli/verbs.py registers every verb in the c35 surface (reader list|info; tag info|uid|wait|read|write|dump|restore|apdu; ndef read|write|erase|format) into REGISTRY with params schemas, mutating flags and handlers that call ops/reader and raise only NfcError; tests/test_verbs.py checks the registered set"
+      ],
+      "deps": [
+        "t2",
+        "t3",
+        "t4",
+        "t7",
+        "t8",
+        "t9",
+        "t5",
+        "t10"
+      ],
+      "covers": [
+        "c13",
+        "h11",
+        "c23",
+        "h19",
+        "c44",
+        "h36",
+        "c45",
+        "h37",
+        "c27",
+        "h22"
+      ],
+      "instruction": "This is the one module that composes transport/classic/families/ndef/dumpfile/journal. Return plain dicts so registry handlers can pass them straight to CLI/MCP/API."
+    },
+    {
+      "id": "t12",
+      "summary": "CLI wiring: argparse noun groups reader/tag/ndef built from REGISTRY, plus 'mcp' and 'ui serve' entry points (lazy imports), NfcError->CliError mapping, explain/learn/overview (nfc_cli/cli/__init__.py, nfc_cli/cli/_commands/{reader,tag,ndef,mcp,ui}.py, nfc_cli/explain/catalog.py, learn.py, overview.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "argparse subcommands for reader/tag/ndef are generated from REGISTRY (no hand-duplicated verb list); 'nfc-cli mcp' lazily calls nfc_cli.mcp.server.run_stdio and 'nfc-cli ui serve' lazily calls nfc_cli.web.server.serve; each noun (reader, tag, ndef, ui) has overview",
+        "every verb accepts --json, --trace, --reader, --wait; mutating verbs accept --apply and the trailer flags; teken cli doctor . --strict passes",
+        "tests/test_cli_nfc.py (FakeTransport injected via env NFC_CLI_FAKE=x3) asserts each NfcError subclass becomes exit 2 with error:/hint: lines on stderr and no traceback; argparse errors stay exit 1",
+        "a test enumerates the parser tree and asserts every path resolves via 'nfc-cli explain'; learn text and JSON list the new nouns plus the MCP and web UI surfaces; parser description and _ROOT no longer say 'clonable template'",
+        "tests assert the CLI verb-path set equals the REGISTRY verb set; McpExtraMissing maps to exit 2 and BindRefused maps to exit 1, each with its hint (module stubs are fine until t13/t14 merge)"
+      ],
+      "deps": [
+        "t5",
+        "t10",
+        "t11"
+      ],
+      "covers": [
+        "c6",
+        "h5",
+        "c35",
+        "h30",
+        "c7",
+        "h6",
+        "c30",
+        "h25"
+      ],
+      "instruction": "Handlers catch NfcError and raise CliError(EXIT_ENV_ERROR, msg, remediation) \u2014 never let library exceptions reach _dispatch. Missing usb extra -> exit 2 'pip install nfc-cli[usb]'."
+    },
+    {
+      "id": "t13",
+      "summary": "MCP server over stdio with CLI parity and trailer-flag gate (nfc_cli/mcp/server.py, nfc_cli/mcp/tools.py, tests/test_surface_parity.py) \u2014 exposes run_stdio(); CLI wiring lives in t12",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tools are built from REGISTRY (noun_verb names, params_schema input schemas); tests/test_surface_parity.py asserts the MCP tool-name set equals the REGISTRY verb set (CLI==REGISTRY is asserted in t12, so CLI==MCP holds transitively)",
+        "a mutating tool runs dry-run unless apply is exactly JSON true; string 'true' is refused; trailer-writing calls also need include_trailers=true or format=true, else zero write APDUs; permitted trailer writes append an audit-log line (timestamp, surface=mcp, uid, blocks)",
+        "the mcp SDK is imported lazily; without the mcp extra run_stdio() raises McpExtraMissing carrying the 'pip install nfc-cli[mcp]' hint; key bytes are redacted unless include_keys"
+      ],
+      "deps": [
+        "t5",
+        "t11"
+      ],
+      "covers": [
+        "c28",
+        "h23",
+        "c54",
+        "h43"
+      ],
+      "instruction": "Cite culture-rules culture_rules/mcp/server.py (low-level Server, list_tools/call_tool, ValueError -> isError). Register 'mcp' as a CLI verb that runs run_stdio()."
+    },
+    {
+      "id": "t14",
+      "summary": "Local web server: static UI + /api/ from registry, loopback bind, install-secret guard (nfc_cli/web/server.py, nfc_cli/web/guard.py) \u2014 exposes serve(host, port, bind_public, fake); CLI wiring lives in t12",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "ThreadingHTTPServer serves nfc_cli/web/dist at / (text fallback page when dist missing) and POST /api/{noun}/{verb} generated from REGISTRY, plus GET /api/state and an SSE /api/events for card present/removed",
+        "serve() defaults to 127.0.0.1:8770 (avoids 8765/8791/8796/8823 used by sibling repos) with env NFC_CLI_HOST/NFC_CLI_PORT; resolve_bind() raises BindRefused (with hint) for a non-loopback host unless bind_public=True and no socket is opened; fake=True loads the x3 scenario",
+        "tests/test_web_server.py on an ephemeral port: mutating POST without Authorization secret or with foreign Origin/Host returns 401/403 and FakeTransport records zero APDUs; secret file is 0600 under XDG config; trailer flags gate and audit log mirror MCP"
+      ],
+      "deps": [
+        "t5",
+        "t11"
+      ],
+      "covers": [
+        "c18",
+        "h15",
+        "c19",
+        "h16"
+      ],
+      "instruction": "Cite embodiment embodiment/http/server.py + guard.py (resolve_bind, install secret, Host/Origin allow-list). Inject the secret into index.html at serve time (meta tag) so same-origin JS can send it."
+    },
+    {
+      "id": "t15",
+      "summary": "Frontend shell: React 18 + Vite 6 + TS scaffold, pinned culture-design tokens, self-hosted fonts, agent-state node, a11y baseline, test harness (web/**, scripts/check-culture-design.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "web/ builds with npm ci && npm run build on the board (user-space Node) producing web/dist; vite dev proxies /api to 127.0.0.1:8770; dist is gitignored",
+        "web/src/culture-design/tokens.css is a provenance header + verbatim copy of agentculture/org site-astro/src/styles/global.css at the pin embodiment uses (b4d939ba0aa354a5ae53065319a773e0013de698); scripts/check-culture-design.py verifies the recorded sha256 and fails on a one-byte edit (pytest test included)",
+        "fonts are self-hosted via @fontsource-variable (Fraunces display, Albert Sans body); web/scripts/check-no-external-origin.mjs fails the build if dist references any external origin",
+        "the root renders <script type=application/json id=agent-state> with status, view_ready, route, reader, card, errors; skip link, visible focus, 44px targets, prefers-reduced-motion honoured; vitest + Playwright (with @axe-core/playwright) configured, e2e serving the API by request interception",
+        "docs/ui-design.md records the frontend-design direction chosen and states that only culture-design tokens are used for colour and type"
+      ],
+      "deps": [],
+      "covers": [
+        "c14",
+        "h12",
+        "c25",
+        "h21",
+        "c10",
+        "h8"
+      ],
+      "instruction": "Copy tokens.css (with header) from the embodiment clone at the session scratchpad (embodiment/web/src/culture-design/) \u2014 cite, don't import; copy check-culture-design.py and check-no-external-origin.mjs likewise with credit. Load the frontend-design skill before choosing the visual direction. Do not build screens yet; one placeholder route that sets view_ready."
+    },
+    {
+      "id": "t16",
+      "summary": "Frontend screens: reader status, live card panel, sector/page memory map, dump/restore with diff preview, NDEF editor, trace drawer (web/src/screens/**, web/src/api/**, web/e2e/**)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "the API client is generated from the registry: a build step (scripts/export-verbs.py) writes web/src/api/verbs.json from REGISTRY and forms for verb params render from its JSON schema",
+        "mutating actions show the dry-run diff first and require an explicit Apply click; trailer-writing actions need an extra confirm toggle; key bytes are never shown unless the user reveals them",
+        "card presence is announced in words (aria-live), never colour alone; agent-state reflects reader/card status and errors",
+        "npm run test:e2e passes in CI against mocked API fixtures (x3 scenario, NTAG, removed-card, busy-reader) with 0 serious/critical axe violations per screen"
+      ],
+      "deps": [
+        "t12",
+        "t15"
+      ],
+      "covers": [
+        "c16",
+        "h13",
+        "c17",
+        "h14",
+        "c38"
+      ],
+      "instruction": "Keep screens in web/src/screens/* to stay file-disjoint from the shell. Use the memory map as the centrepiece: 16 sectors x 4 blocks for Classic with trailers visually distinct and locked by default."
+    },
+    {
+      "id": "t17",
+      "summary": "Docs, prompt files, udev rule, version bump (README.md, CLAUDE.md, AGENTS.colleague.md, AGENTS.override.md, QWEN.md, .pi/SYSTEM.md, docs/udev/60-nfc-cli-acr1552.rules, docs/hardware.md, CHANGELOG.md, pyproject version)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "all four harness prompt files state the same purpose and current status (NFC CLI + MCP + web UI implemented; no longer 'no NFC functionality'); CLAUDE.md hardware section updated with the X3 facts and uaccess note",
+        "docs/udev/60-nfc-cli-acr1552.rules grants 072f:2303 to a group for headless use and docs/hardware.md explains install, the uaccess/seat caveat, 125 kHz/UHF tags being invisible, and weak-coupling tips",
+        "README documents CLI, MCP config snippet, and ui serve; version bumped minor via the version-bump skill with a CHANGELOG entry naming the first optional extras; markdownlint-cli2 passes"
+      ],
+      "deps": [
+        "t12",
+        "t13",
+        "t14",
+        "t16"
+      ],
+      "covers": [
+        "c31",
+        "h26"
+      ],
+      "instruction": "Use the version-bump skill. Keep the before-state (template-only) visible in the CHANGELOG entry rather than rewriting history."
+    },
+    {
+      "id": "t18",
+      "summary": "Live hardware validation on the board and evidence (no code; PR evidence + devague evidence records)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "on the VENTUNO Q with the ACR1552: tag info --wait 60 identifies the X3; tag dump reads 16/16 sectors; ndef format+write --uri then ndef read returns the same URI on the X3 and the transparent sticker; restore of the blank snapshot reads back 64/64 data blocks identical (trailers excluded)",
+        "the same read runs via the MCP server (a client call to tag_info) and via the web UI under the playwright MCP with a screenshot; reader polling type reads 07 05 afterwards",
+        "teken cli doctor . --strict, pytest -n auto (coverage >= 60%), markdownlint and the CI web job are green; outputs pasted into the PR"
+      ],
+      "deps": [
+        "t6",
+        "t17"
+      ],
+      "covers": [
+        "c1",
+        "h1",
+        "c11",
+        "h9",
+        "c24",
+        "h20",
+        "c32",
+        "h27",
+        "c33",
+        "h28",
+        "c36",
+        "h31",
+        "c37",
+        "h32",
+        "h33",
+        "h7"
+      ],
+      "instruction": "Ask the user before every --apply write and to reposition the X3 (weak coupling). Snapshot paths go in the PR. File devague evidence records for the obligations as each check passes."
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "The wheel build hook needs Node wherever a wheel is built (CI test job via uv sync, publish.yml, uv sync on the board); mitigated in t6 by a staleness check and NFC_CLI_SKIP_WEB_BUILD \u2014 verify CI runtime stays acceptable",
+      "kind": "unknown_nonblocking",
+      "task_id": "t6",
+      "resolved": false,
+      "resolution": ""
+    },
+    {
+      "id": "r2",
+      "text": "Headless Chromium for the playwright MCP / e2e on this aarch64 board may need root-installed system libraries; CI (ubuntu-latest) is the authoritative e2e run, board-side screenshot is best-effort",
+      "kind": "unknown_nonblocking",
+      "task_id": "t18",
+      "resolved": false,
+      "resolution": ""
+    },
+    {
+      "id": "r3",
+      "text": "Disabling the reader's RF-off interval might improve detection of the weakly coupled X3; try during t18 only via the snapshot/restore path",
+      "kind": "unknown_nonblocking",
+      "task_id": "t18",
+      "resolved": false,
+      "resolution": ""
+    },
+    {
+      "id": "r4",
+      "text": "MIFARE Classic NFC-Forum access-bit constants in t3 are from memory of NXP AN1304/AN10787, not re-read; t3 must verify parity in tests and t18 must confirm an Android phone reads the formatted X3",
+      "kind": "unknown_nonblocking",
+      "task_id": "t3",
+      "resolved": false,
+      "resolution": ""
+    },
+    {
+      "id": "r5",
+      "text": "Follow-ups outside this plan: card emulation (frame v6), cloning onto magic cards (v3), PC/SC backend (non-goal)",
+      "kind": "follow_up",
+      "task_id": null,
+      "resolved": false,
+      "resolution": ""
+    }
+  ],
+  "obligations": []
+}
