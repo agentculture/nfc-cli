@@ -12,14 +12,15 @@ from nfc_cli import __version__
 from nfc_cli.cli._output import emit_result
 
 _TEXT = """\
-nfc-cli — a clonable template for AgentCulture mesh agents.
+nfc-cli — control NFC reader-writers (ACR1552) via USB.
 
 Purpose
 -------
-Scaffold for a new Culture mesh agent: an agent-first CLI (cited from the teken
-`python-cli` reference), an identity (culture.yaml + CLAUDE.md), the canonical
-guildmaster skill kit under .claude/skills/, and a deploy/CI baseline. Clone it,
-rename the package, and edit culture.yaml to mint a new agent.
+Read, write, dump, restore and NDEF-encode NFC tags through an ACS ACR1552 over
+raw USB CCID. The same registry-derived verbs are exposed three ways: this CLI,
+an MCP server on stdio (`nfc-cli mcp`), and a local web UI (`nfc-cli ui serve`).
+Writes are a dry-run unless --apply is given; sector trailers need
+--include-trailers.
 
 Commands
 --------
@@ -29,6 +30,15 @@ Commands
   nfc-cli overview           Descriptive snapshot of the agent.
   nfc-cli doctor             Check the agent-identity invariants.
   nfc-cli cli overview       Describe the CLI surface itself.
+  nfc-cli reader list|info   Reader operations.
+  nfc-cli tag info|uid|wait|read|write|dump|restore|apdu   Tag operations.
+  nfc-cli ndef read|write|erase|format                     NDEF operations.
+  nfc-cli mcp                MCP server on stdio (pip install 'nfc-cli[mcp]').
+  nfc-cli ui serve           Local web UI + /api (localhost; --fake x3 for no hardware).
+  nfc-cli <noun> overview    Describe reader / tag / ndef / ui.
+
+Per-verb flags: --json, --trace (APDU trace on stderr), --reader INDEX|BUS:ADDR;
+mutating verbs add --apply.
 
 Machine-readable output
 -----------------------
@@ -48,11 +58,18 @@ More detail
 """
 
 
+def _registry_commands() -> list[dict[str, object]]:
+    import nfc_cli.verbs  # noqa: F401  (registers the verbs)
+    from nfc_cli.registry import REGISTRY
+
+    return [{"path": list(v.path), "summary": v.summary} for v in REGISTRY.verbs()]
+
+
 def _as_json_payload() -> dict[str, object]:
     return {
         "tool": "nfc-cli",
         "version": __version__,
-        "purpose": "Clonable scaffold for a new AgentCulture mesh agent.",
+        "purpose": "Control NFC reader-writers (ACR1552) via USB: CLI, MCP and web UI.",
         "commands": [
             {"path": ["whoami"], "summary": "Identity probe from culture.yaml."},
             {"path": ["learn"], "summary": "Self-teaching prompt."},
@@ -60,7 +77,15 @@ def _as_json_payload() -> dict[str, object]:
             {"path": ["overview"], "summary": "Descriptive snapshot of the agent."},
             {"path": ["doctor"], "summary": "Check the agent-identity invariants."},
             {"path": ["cli", "overview"], "summary": "Describe the CLI surface."},
+            *_registry_commands(),
+            {"path": ["reader", "overview"], "summary": "Describe the reader noun."},
+            {"path": ["tag", "overview"], "summary": "Describe the tag noun."},
+            {"path": ["ndef", "overview"], "summary": "Describe the ndef noun."},
+            {"path": ["ui", "serve"], "summary": "Web UI surface: serve the UI and /api."},
+            {"path": ["ui", "overview"], "summary": "Describe the ui noun."},
+            {"path": ["mcp"], "summary": "MCP surface: every verb as a tool over stdio."},
         ],
+        "surfaces": ["cli", "mcp", "web-ui"],
         "exit_codes": {
             "0": "success",
             "1": "user-input error",
