@@ -16,6 +16,7 @@ from nfc_cli.nfc.errors import CardRemoved, NfcError, NoCard, ReaderBusy
 
 SW_OK = b"\x90\x00"
 SW_DENIED = b"\x63\x00"  # auth / operation failed
+SW_MUTE = b"MUTE"  # sentinel: the card halted (reader reports ICC mute)
 SW_NOT_AUTH = b"\x69\x82"  # security status not satisfied
 SW_NOT_FOUND = b"\x6a\x82"  # file / app not found
 SW_NO_FILE = b"\x69\x85"  # conditions not satisfied (nothing selected)
@@ -118,6 +119,11 @@ class MifareClassic1K(FakeCard):
         self.blocks = [bytes(b) for b in blocks]
         self.keyslots: dict[int, bytes] = {}
         self.auth: tuple[int, str] | None = None  # (sector, "A"|"B")
+        # Real Classic chips NAK a refused write and HALT; the ACR1552 then reports the
+        # card as mute, which the transport surfaces as CardRemoved although the card is
+        # still in the field. mute_on_nak reproduces that (observed live 2026-11-08).
+        self.mute_on_nak = False
+        self.halted = False
 
     @staticmethod
     def blank_blocks(uid: bytes, block0: bytes | None = None) -> list[bytes]:
@@ -133,6 +139,7 @@ class MifareClassic1K(FakeCard):
     def power_on(self) -> None:
         self.auth = None
         self.keyslots = {}
+        self.halted = False
 
     # -- helpers
     @staticmethod
@@ -213,6 +220,12 @@ class MifareClassic1K(FakeCard):
             return SW_DENIED
         if self._is_trailer(block):
             keya_w, _, acc_w, _, keyb_w = _TRAILER_RULES[self._cond(block)]
+            if not any(self._allowed(who, r) for r in (keya_w, acc_w, keyb_w)):
+                # nothing in this trailer is writable with the current key: the chip NAKs
+                if self.mute_on_nak:
+                    self.halted = True
+                    return SW_MUTE
+                return SW_DENIED
             old = self.blocks[block]
             new = bytearray(old)
             if self._allowed(who, keya_w):
@@ -224,6 +237,9 @@ class MifareClassic1K(FakeCard):
             self.blocks[block] = bytes(new)
             return SW_OK
         if not self._allowed(who, _DATA_RULES[self._cond(block)][1]):
+            if self.mute_on_nak:
+                self.halted = True
+                return SW_MUTE
             return SW_DENIED
         self.blocks[block] = bytes(data)
         return SW_OK
@@ -476,9 +492,14 @@ class FakeTransport:
         return resp[:-2], resp[-2:]
 
     def _dispatch(self, apdu: bytes) -> bytes:
+        if getattr(self.card, "halted", False):
+            raise CardRemoved()
         if len(apdu) >= 4 and apdu[0] == 0xFF and apdu[1] == 0xCA:
             return self.card.uid + SW_OK
-        return self.card.handle(apdu)
+        resp = self.card.handle(apdu)
+        if resp == SW_MUTE:
+            raise CardRemoved()
+        return resp
 
     def escape(self, cmd: bytes) -> bytes:
         self._check_busy()

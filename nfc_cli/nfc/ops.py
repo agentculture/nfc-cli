@@ -357,8 +357,13 @@ class _ClassicAccess(_Access):
         self.auth(sector)
         try:
             classic.write_block(self.t, block, data, allow_trailer=True)
-        except ApduError:
-            # access conditions may reserve writes for key B: power-cycle, retry once with B
+        except (ApduError, CardRemoved):
+            # Access conditions may reserve writes for key B (e.g. NFC-Forum sector 0, 787788).
+            # A refused write is reported either as an error SW or -- on the ACR1552, because
+            # the chip halts after the NAK -- as a mute card (CardRemoved) while the tag is still
+            # in the field. Only a card that is really gone keeps the CardRemoved.
+            if not self.t.present():
+                raise
             self.authed = None
             _power_cycle(self.t)
             self.auth(sector, ("B",))
