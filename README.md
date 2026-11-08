@@ -102,8 +102,8 @@ error, `3+` reserved.
 1. Rename the package `nfc_cli/` and the `nfc-cli`
    CLI/dist name throughout `pyproject.toml`, the package, `tests/`,
    `sonar-project.properties`, and this `README.md`. The name is hard-coded in
-   ~100 places, so list every occurrence first — see the `git grep` discovery
-   command in [`CLAUDE.md`](CLAUDE.md), the authoritative rename procedure.
+   ~100 places, so list every occurrence first:
+   `git grep -nF -e 'nfc-cli' -e 'nfc_cli'`.
 2. Edit `culture.yaml` with your `suffix` and `backend`, and adjust its
    `gate` section (below) to your project's setup and test commands.
 3. Rewrite `CLAUDE.md` for your agent and run `/init`. Rewrite the other three

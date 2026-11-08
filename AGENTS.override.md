@@ -20,10 +20,12 @@ what the repo is and how it is laid out, not who is reading it.
 
 ## What this project is
 
-`nfc-cli` is a clonable template for AgentCulture mesh agents —
-a working, minimal example of the sibling pattern every Culture agent follows:
-an agent-first CLI, a mesh identity, the canonical skill kit, and a
-buildable/deployable package baseline. It is a sibling to
+`nfc-cli` is an AgentCulture mesh agent whose purpose is to **control NFC
+reader-writers via USB**. It was scaffolded from `culture-agent-template`, and
+**no NFC functionality exists yet** — today the repo holds only the template
+baseline: an agent-first CLI (identity/introspection verbs), a mesh identity,
+the canonical skill kit, and a buildable/deployable package. If asked about
+reader or tag support, say plainly that it has not been built. It is a sibling to
 [`guildmaster`](https://github.com/agentculture/guildmaster) (the skills
 supplier), [`steward`](https://github.com/agentculture/steward) (alignment),
 and [`teken`](https://github.com/agentculture/teken) (the CLI scaffolder this
@@ -57,15 +59,15 @@ agents:
   backend: claude
 ```
 
-This template's *mesh* resident runs on `backend: claude`, so `CLAUDE.md` is
-the live resident prompt. A Pi session working in a clone of this repo is a
+This repo's *mesh* resident runs on `backend: claude`, so `CLAUDE.md` is
+the live resident prompt. A Pi session working in this repo is a
 **local tool session**, not the mesh resident — it reads this file and
 `.pi/SYSTEM.md` regardless of what `culture.yaml` declares, and running `pi`
 here neither requires nor changes that declaration.
 
-(A clone that wants `associate` as its *mesh* resident declares
+(Making `associate` the *mesh* resident would mean declaring
 `backend: colleague` with `model: associate` — see `docs/skill-sources.md`.
-That is a per-clone choice; this template does not ship it.)
+This repo does not do that.)
 
 ## Layout (what you can read/find/summarize here)
 
@@ -85,9 +87,10 @@ culture.yaml              mesh identity (suffix + backend)
 - The vendored skills under `.claude/skills/` are cited **verbatim** from
   guildmaster — never propose editing their scripts; the fix belongs upstream
   (`docs/skill-sources.md` has the re-sync procedure).
-- The package/CLI name (`nfc_cli` / `nfc-cli`)
-  is hard-coded in roughly a hundred places; a rename is a `git grep` sweep,
-  not a hand edit (see `CLAUDE.md`'s "Cloning this template" section).
+- Every CLI command supports `--json`, writes results to stdout and errors to
+  stderr, and uses exit codes `0` success, `1` user error, `2` environment
+  error (e.g. a missing reader or PC/SC service). `CLAUDE.md` covers the full
+  CLI contract.
 - Every PR bumps the version (`version-bump` skill); CI's `version-check` job
   blocks merge otherwise.
 - This file describes the repo **as it exists on disk today**. If you are
