@@ -78,22 +78,21 @@ def test_type2_error_status():
 
 
 def iso15693_tag(blocks=8, bsize=4, sysinfo=True):
-    mem = [bytes([i] * bsize) for i in range(blocks)]
+    mem = [bytes([i & 0xFF] * bsize) for i in range(blocks)]
 
     def h(a):
+        if a[:2] == b"\xff\xb0":  # Read Binary: P1[2:0]+P2 = block, Le = length (0 -> block)
+            blk = ((a[2] & 0x07) << 8) | a[3]
+            return mem[blk][: a[4] or bsize], OK
+        if a[:2] == b"\xff\xd6":  # Update Binary
+            blk = ((a[2] & 0x07) << 8) | a[3]
+            mem[blk] = a[5 : 5 + a[4]]
+            return b"", OK
         assert a[:3] == b"\xff\xfb\x00"
         body = a[5:]
-        assert a[4] == len(body)
-        if body[0] == 0x2B:
-            if not sysinfo:
-                return b"\x01\x01", OK
+        if body[0] == 0x2B and sysinfo:
             uid = bytes(range(8))
             return b"\x00\x0f" + uid + b"\x00\x00" + bytes([blocks - 1, bsize - 1]) + b"\x01", OK
-        if body[0] == 0x20:
-            return b"\x00" + mem[body[1]], OK
-        if body[0] == 0x21:
-            mem[body[1]] = body[2:]
-            return b"\x00", OK
         return b"\x01\x01", OK
 
     return Fake(h), mem
@@ -104,12 +103,21 @@ def test_iso15693_geometry_and_rw():
     ops = family_ops("iso15693")
     assert ops.geometry(tr) == (8, 4)
     assert ops.read_block(tr, 2) == b"\x02" * 4
-    assert tr.log[-1] == bytes.fromhex("FFFB000002" "2002")
+    assert tr.log[-1] == bytes.fromhex("FFB0000204")
     ops.write_block(tr, 3, b"abcd")
     assert mem[3] == b"abcd"
-    assert tr.log[-1] == bytes.fromhex("FFFB000006" "2103" "61626364")
+    assert tr.log[-1] == bytes.fromhex("FFD6000304" "61626364")
     with pytest.raises(UnsupportedOperation):
         ops.write_block(tr, 3, b"abc")
+
+
+def test_iso15693_high_block_address_and_range():
+    tr, _ = iso15693_tag(blocks=0x300)
+    ops = family_ops("iso15693")
+    ops.read_block(tr, 0x2A5)
+    assert tr.log[-1] == bytes.fromhex("FFB002A504")
+    with pytest.raises(UnsupportedOperation):
+        ops.read_block(tr, 0x800)
 
 
 def test_iso15693_geometry_fallback_probe():

@@ -123,7 +123,7 @@ class Type2Ops:
 
 
 class Iso15693Ops:
-    """ISO 15693 via the ACR1552 pass-through (FF FB 00 <flags> <len> <cmd> ...)."""
+    """ISO 15693: blocks via Read/Update Binary (FF B0 / FF D6); system info via pass-through."""
 
     def command(self, tr: Transport, cmd: int, payload: bytes = b"", flags: int = 0) -> bytes:
         body = bytes([cmd]) + bytes(payload)
@@ -160,21 +160,34 @@ class Iso15693Ops:
                 return info["blocks"], info["block_size"]
         except (NfcError, IndexError):
             pass
-        return None, len(self.read_block(tr, 0))
+        return None, len(self._read_binary(tr, 0, 0))
 
-    def read_block(self, tr: Transport, block: int) -> bytes:
-        if not 0 <= block <= 0xFF:
-            raise UnsupportedOperation("only blocks 0-255 are addressable here")
-        return self.command(tr, 0x20, bytes([block]))
+    @staticmethod
+    def _address(block: int) -> tuple[int, int]:
+        if not 0 <= block <= 0x7FF:
+            raise UnsupportedOperation("ISO15693 blocks 0-2047 are addressable via Read Binary")
+        return (block >> 8) & 0x07, block & 0xFF
+
+    def _read_binary(self, tr: Transport, block: int, length: int) -> bytes:
+        p1, p2 = self._address(block)
+        return _exchange(tr, bytes([0xFF, 0xB0, p1, p2, length]), f"ISO15693 read block {block}")
+
+    def read_block(self, tr: Transport, block: int, size: int = 4) -> bytes:
+        """Read one block via the ACR1552 Read Binary pseudo-APDU (manual 1.09 5.3.3.4)."""
+        return self._read_binary(tr, block, size)
 
     def write_block(self, tr: Transport, block: int, data: bytes) -> None:
+        """Write one block via Update Binary (FF D6); data length must equal the block size."""
         _, size = self.geometry(tr)
         if len(data) != size:
             raise UnsupportedOperation(f"this tag has {size}-byte blocks; got {len(data)} bytes")
-        self.command(tr, 0x21, bytes([block]) + bytes(data))
+        p1, p2 = self._address(block)
+        apdu = bytes([0xFF, 0xD6, p1, p2, len(data)]) + bytes(data)
+        _exchange(tr, apdu, f"ISO15693 write block {block}")
 
     def read_blocks(self, tr: Transport, start: int, count: int) -> bytes:
-        return b"".join(self.read_block(tr, b) for b in range(start, start + count))
+        _, size = self.geometry(tr)
+        return b"".join(self.read_block(tr, b, size) for b in range(start, start + count))
 
     def write_blocks(self, tr: Transport, start: int, data: bytes) -> None:
         _, size = self.geometry(tr)
