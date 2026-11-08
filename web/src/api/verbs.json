@@ -1,0 +1,537 @@
+{
+  "generated_by": "scripts/export-verbs.py",
+  "verbs": [
+    {
+      "noun": "reader",
+      "verb": "list",
+      "summary": "List attached ACR1552 readers",
+      "route": "/api/reader/list",
+      "mutating": false,
+      "trailer_flag": null,
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "reader",
+      "verb": "info",
+      "summary": "Reader firmware, polling types and slot status",
+      "route": "/api/reader/info",
+      "mutating": false,
+      "trailer_flag": null,
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "tag",
+      "verb": "info",
+      "summary": "Identify the tag on the reader (ATR, UID, family)",
+      "route": "/api/tag/info",
+      "mutating": false,
+      "trailer_flag": null,
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "wait": {
+            "type": "integer",
+            "description": "seconds to wait for a card before failing (default: no wait)"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "tag",
+      "verb": "uid",
+      "summary": "Print the tag UID",
+      "route": "/api/tag/uid",
+      "mutating": false,
+      "trailer_flag": null,
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "wait": {
+            "type": "integer",
+            "description": "seconds to wait for a card before failing (default: no wait)"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "tag",
+      "verb": "wait",
+      "summary": "Wait until a tag is on the reader",
+      "route": "/api/tag/wait",
+      "mutating": false,
+      "trailer_flag": null,
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "timeout": {
+            "type": "integer",
+            "description": "seconds to wait",
+            "default": 30
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "tag",
+      "verb": "read",
+      "summary": "Read blocks (or the whole tag) without saving",
+      "route": "/api/tag/read",
+      "mutating": false,
+      "trailer_flag": null,
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "block": {
+            "type": "integer",
+            "description": "first block/page (default: whole tag)"
+          },
+          "count": {
+            "type": "integer",
+            "description": "number of blocks",
+            "default": 1
+          },
+          "key": {
+            "type": "string",
+            "description": "MIFARE Classic key to try first (12 hex digits)"
+          },
+          "key_type": {
+            "type": "string",
+            "description": "key type for --key: A or B",
+            "default": "A"
+          },
+          "keys_file": {
+            "type": "string",
+            "description": "file of extra Classic keys, one per line"
+          },
+          "include_keys": {
+            "type": "boolean",
+            "description": "show key bytes instead of masking them"
+          },
+          "wait": {
+            "type": "integer",
+            "description": "seconds to wait for a card before failing (default: no wait)"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "tag",
+      "verb": "write",
+      "summary": "Write whole blocks starting at BLOCK (verified by read-back)",
+      "route": "/api/tag/write",
+      "mutating": true,
+      "trailer_flag": "include_trailers",
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "block": {
+            "type": "integer",
+            "description": "first block/page"
+          },
+          "data": {
+            "type": "string",
+            "description": "hex data, a multiple of the block size"
+          },
+          "key": {
+            "type": "string",
+            "description": "MIFARE Classic key to try first (12 hex digits)"
+          },
+          "key_type": {
+            "type": "string",
+            "description": "key type for --key: A or B",
+            "default": "A"
+          },
+          "keys_file": {
+            "type": "string",
+            "description": "file of extra Classic keys, one per line"
+          },
+          "include_trailers": {
+            "type": "boolean",
+            "description": "also write sector trailers and block 0 (dangerous)"
+          },
+          "include_keys": {
+            "type": "boolean",
+            "description": "show key bytes instead of masking them"
+          },
+          "wait": {
+            "type": "integer",
+            "description": "seconds to wait for a card before failing (default: no wait)"
+          },
+          "apply": {
+            "type": "boolean",
+            "default": false,
+            "description": "false = dry-run (change nothing); true = commit the write"
+          }
+        },
+        "required": [
+          "block",
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "tag",
+      "verb": "dump",
+      "summary": "Dump the whole tag to a 0600 file (resumable)",
+      "route": "/api/tag/dump",
+      "mutating": false,
+      "trailer_flag": null,
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "output": {
+            "type": "string",
+            "description": "dump file (default: under the user data dir)"
+          },
+          "format": {
+            "type": "string",
+            "description": "json or bin",
+            "default": "json"
+          },
+          "resume": {
+            "type": "string",
+            "description": "continue a partial dump file"
+          },
+          "key": {
+            "type": "string",
+            "description": "MIFARE Classic key to try first (12 hex digits)"
+          },
+          "key_type": {
+            "type": "string",
+            "description": "key type for --key: A or B",
+            "default": "A"
+          },
+          "keys_file": {
+            "type": "string",
+            "description": "file of extra Classic keys, one per line"
+          },
+          "include_keys": {
+            "type": "boolean",
+            "description": "show key bytes instead of masking them"
+          },
+          "wait": {
+            "type": "integer",
+            "description": "seconds to wait for a card before failing (default: no wait)"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "tag",
+      "verb": "restore",
+      "summary": "Write a dump back (trailers/block 0 skipped unless --include-trailers)",
+      "route": "/api/tag/restore",
+      "mutating": true,
+      "trailer_flag": "include_trailers",
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "dump file, or with --resume the journal to finish"
+          },
+          "resume": {
+            "type": "boolean",
+            "description": "FILE is a write journal: finish its pending blocks"
+          },
+          "format": {
+            "type": "string",
+            "description": "dump format: json or bin",
+            "default": "json"
+          },
+          "key": {
+            "type": "string",
+            "description": "MIFARE Classic key to try first (12 hex digits)"
+          },
+          "key_type": {
+            "type": "string",
+            "description": "key type for --key: A or B",
+            "default": "A"
+          },
+          "keys_file": {
+            "type": "string",
+            "description": "file of extra Classic keys, one per line"
+          },
+          "include_trailers": {
+            "type": "boolean",
+            "description": "also write sector trailers and block 0 (dangerous)"
+          },
+          "include_keys": {
+            "type": "boolean",
+            "description": "show key bytes instead of masking them"
+          },
+          "wait": {
+            "type": "integer",
+            "description": "seconds to wait for a card before failing (default: no wait)"
+          },
+          "apply": {
+            "type": "boolean",
+            "default": false,
+            "description": "false = dry-run (change nothing); true = commit the write"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "tag",
+      "verb": "apdu",
+      "summary": "Send raw APDUs (comma-separated hex) to the tag",
+      "route": "/api/tag/apdu",
+      "mutating": true,
+      "trailer_flag": "include_trailers",
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "apdu": {
+            "type": "string",
+            "description": "hex APDU(s), comma-separated"
+          },
+          "include_trailers": {
+            "type": "boolean",
+            "description": "also write sector trailers and block 0 (dangerous)"
+          },
+          "wait": {
+            "type": "integer",
+            "description": "seconds to wait for a card before failing (default: no wait)"
+          },
+          "apply": {
+            "type": "boolean",
+            "default": false,
+            "description": "false = dry-run (change nothing); true = commit the write"
+          }
+        },
+        "required": [
+          "apdu"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "ndef",
+      "verb": "read",
+      "summary": "Read and decode the NDEF message",
+      "route": "/api/ndef/read",
+      "mutating": false,
+      "trailer_flag": null,
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "MIFARE Classic key to try first (12 hex digits)"
+          },
+          "key_type": {
+            "type": "string",
+            "description": "key type for --key: A or B",
+            "default": "A"
+          },
+          "keys_file": {
+            "type": "string",
+            "description": "file of extra Classic keys, one per line"
+          },
+          "wait": {
+            "type": "integer",
+            "description": "seconds to wait for a card before failing (default: no wait)"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "ndef",
+      "verb": "write",
+      "summary": "Write an NDEF record (text, URI, MIME or raw message)",
+      "route": "/api/ndef/write",
+      "mutating": true,
+      "trailer_flag": null,
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "text record content"
+          },
+          "lang": {
+            "type": "string",
+            "description": "text record language",
+            "default": "en"
+          },
+          "uri": {
+            "type": "string",
+            "description": "URI record"
+          },
+          "mime": {
+            "type": "string",
+            "description": "MIME type for a MIME record"
+          },
+          "payload": {
+            "type": "string",
+            "description": "MIME record payload (UTF-8 text)"
+          },
+          "payload_file": {
+            "type": "string",
+            "description": "MIME record payload file"
+          },
+          "raw_file": {
+            "type": "string",
+            "description": "file holding a complete encoded NDEF message"
+          },
+          "key": {
+            "type": "string",
+            "description": "MIFARE Classic key to try first (12 hex digits)"
+          },
+          "key_type": {
+            "type": "string",
+            "description": "key type for --key: A or B",
+            "default": "A"
+          },
+          "keys_file": {
+            "type": "string",
+            "description": "file of extra Classic keys, one per line"
+          },
+          "include_keys": {
+            "type": "boolean",
+            "description": "show key bytes instead of masking them"
+          },
+          "wait": {
+            "type": "integer",
+            "description": "seconds to wait for a card before failing (default: no wait)"
+          },
+          "apply": {
+            "type": "boolean",
+            "default": false,
+            "description": "false = dry-run (change nothing); true = commit the write"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "ndef",
+      "verb": "erase",
+      "summary": "Replace the NDEF message with an empty one",
+      "route": "/api/ndef/erase",
+      "mutating": true,
+      "trailer_flag": null,
+      "writes_trailers": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "MIFARE Classic key to try first (12 hex digits)"
+          },
+          "key_type": {
+            "type": "string",
+            "description": "key type for --key: A or B",
+            "default": "A"
+          },
+          "keys_file": {
+            "type": "string",
+            "description": "file of extra Classic keys, one per line"
+          },
+          "include_keys": {
+            "type": "boolean",
+            "description": "show key bytes instead of masking them"
+          },
+          "wait": {
+            "type": "integer",
+            "description": "seconds to wait for a card before failing (default: no wait)"
+          },
+          "apply": {
+            "type": "boolean",
+            "default": false,
+            "description": "false = dry-run (change nothing); true = commit the write"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "noun": "ndef",
+      "verb": "format",
+      "summary": "NDEF-format a MIFARE Classic tag (MAD + NDEF keys; writes trailers from the fixed NFC Forum template)",
+      "route": "/api/ndef/format",
+      "mutating": true,
+      "trailer_flag": "include_trailers",
+      "writes_trailers": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "include_trailers": {
+            "type": "boolean",
+            "description": "confirm the template trailer writes (required over MCP / web API)"
+          },
+          "key": {
+            "type": "string",
+            "description": "MIFARE Classic key to try first (12 hex digits)"
+          },
+          "key_type": {
+            "type": "string",
+            "description": "key type for --key: A or B",
+            "default": "A"
+          },
+          "keys_file": {
+            "type": "string",
+            "description": "file of extra Classic keys, one per line"
+          },
+          "include_keys": {
+            "type": "boolean",
+            "description": "show key bytes instead of masking them"
+          },
+          "wait": {
+            "type": "integer",
+            "description": "seconds to wait for a card before failing (default: no wait)"
+          },
+          "apply": {
+            "type": "boolean",
+            "default": false,
+            "description": "false = dry-run (change nothing); true = commit the write"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
