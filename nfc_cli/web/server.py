@@ -14,7 +14,7 @@ import os
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
 from nfc_cli import verbs
@@ -235,10 +235,20 @@ class Handler(BaseHTTPRequestHandler):
         if dist is None:
             msg = "nfc-cli web UI is not built (run `npm run build` in web/); the /api/ is live.\n"
             return self._send(200, msg.encode(), "text/plain; charset=utf-8")
-        rel = path.lstrip("/") or "index.html"
-        target = (dist / rel).resolve()
-        if not target.is_file() or dist.resolve() not in target.parents:
-            target = dist / "index.html"  # SPA fallback
+        # Resolve the request path strictly inside dist; anything else is the SPA fallback.
+        # ``..`` and absolute segments are stripped before joining, and containment is then
+        # re-checked on the resolved path, so a request can never read outside dist.
+        root = dist.resolve()
+        safe_parts = [
+            part
+            for part in PurePosixPath(path.lstrip("/")).parts
+            if part not in ("", ".", "..") and ":" not in part
+        ]
+        target = root.joinpath(*safe_parts).resolve() if safe_parts else root / "index.html"
+        if target != root and root not in target.parents:
+            target = root / "index.html"  # escaped containment -> SPA fallback
+        if not target.is_file():
+            target = root / "index.html"  # SPA fallback for unknown routes
         data = target.read_bytes()
         if target.name == "index.html" and self.app.embed_secret:
             meta = f'<meta name="nfc-cli-secret" content="{html.escape(self.app.secret)}">'

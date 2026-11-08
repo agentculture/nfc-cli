@@ -214,3 +214,22 @@ def test_public_bind_does_not_embed_secret(tmp_path, monkeypatch):
     finally:
         s.shutdown()
         s.server_close()
+
+
+def test_static_path_traversal_blocked(srv, tmp_path):
+    d = tmp_path / "dist2"
+    d.mkdir()
+    (d / "index.html").write_text("<html><head></head><body>spa</body></html>")
+    (d / "app.js").write_text("ok")
+    srv.dist = d
+    (tmp_path / "secret.txt").write_text("TOPSECRET")
+    for p in (
+        "/../secret.txt",
+        "/..%2f..%2fsecret.txt",
+        "/%2e%2e/secret.txt",
+        "/foo/../../secret.txt",
+    ):
+        st, raw = req(srv, "GET", p, auth=False)
+        assert b"TOPSECRET" not in raw  # never escapes dist
+    st, raw = req(srv, "GET", "/app.js", auth=False)
+    assert raw == b"ok"  # legitimate asset still served

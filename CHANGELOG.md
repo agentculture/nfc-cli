@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.5] - 2026-11-08
+
+### Fixed
+
+- The web console's static-file handler strips `..`/absolute segments and re-checks containment on the resolved path, so a crafted request can never read outside the built `dist` directory. (code review / SonarCloud)
+
 ## [0.12.4] - 2026-11-08
 
 ### Fixed
