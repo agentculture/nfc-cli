@@ -90,6 +90,20 @@ class VerifyFailed(NfcError):
     default_remediation = "re-run with --resume JOURNAL; if it persists the block may be locked"
 
 
+class CardChanged(NfcError):
+    default_message = "the tag on the reader is not the one that was previewed; nothing was written"
+    default_remediation = "re-read the tag and preview the write again"
+
+
+def _require_uid(card: Card, expect_uid: str | None) -> None:
+    """Refuse to write when the present tag is not the one the caller previewed."""
+    if expect_uid and card.uid_hex != expect_uid:
+        raise CardChanged(
+            f"the tag on the reader (UID {card.uid_hex}) is not the one you previewed "
+            f"(UID {expect_uid}); nothing was written",
+        )
+
+
 class NotNdefFormatted(NfcError):
     default_message = "the tag is not NDEF formatted"
     default_remediation = "run `nfc-cli ndef format --apply` first (MIFARE Classic)"
@@ -805,9 +819,18 @@ def _masked(acc: _Access, entries: list[dict], include_keys: bool) -> list[dict]
 
 def _snapshot(t: Transport, card: Card, acc: _Access, path: str | os.PathLike | None) -> Path:
     try:
-        d, _ = _read_all(t, card, acc, retry_timeout=0)
+        d, failed = _read_all(t, card, acc, retry_timeout=0)
+        if failed:
+            # An incomplete snapshot cannot undo the write, so never proceed with one.
+            raise SnapshotFailed(
+                f"could not read the whole tag for a pre-write snapshot "
+                f"(unreadable sector(s) {failed}); nothing was written",
+                "supply the missing keys (--key / --keys-file) so the whole tag can be read",
+            )
         target = Path(path) if path else dumpfile.snapshot_path(card.uid_hex, _stamp())
         d.save(target, include_keys=True)
+    except SnapshotFailed:
+        raise
     except (OSError, ValueError, NfcError) as exc:
         raise SnapshotFailed(f"could not save the pre-write snapshot ({exc}); nothing was written")
     return target
@@ -884,7 +907,9 @@ def _mutate(
     snapshot_path: str | os.PathLike | None = None,
     journal: Journal | None = None,
     extra: dict | None = None,
+    expect_uid: str | None = None,
 ) -> dict:
+    _require_uid(card, expect_uid)
     entries = _plan(acc, changes, include_trailers)
     result: dict[str, Any] = {
         "uid": card.uid_hex,
@@ -962,6 +987,7 @@ def write(
         include_trailers=include_trailers,
         include_keys=include_keys,
         snapshot_path=snapshot_path,
+        expect_uid=keyargs.get("expect_uid"),
     )
 
 
@@ -1001,6 +1027,7 @@ def restore(
         include_keys=include_keys,
         snapshot_path=snapshot_path,
         extra=extra,
+        expect_uid=keyargs.get("expect_uid"),
     )
     for b in sorted(masked):
         res["diff"].append(
@@ -1059,6 +1086,7 @@ def resume(
         snapshot_path=snapshot_path,
         journal=journal if apply else None,
         extra={"resumed": str(path), "pending_before": sorted(changes)},
+        expect_uid=keyargs.get("expect_uid"),
     )
 
 
@@ -1209,8 +1237,11 @@ def _ndef_area(t: Transport, card: Card, keyargs: dict) -> tuple[_Access, list[i
 
 
 def _ndef_mutate(t, card, tlv: bytes, *, op, apply, clear_rest, include_keys, snapshot_path, kw):
+    expect_uid = kw.get("expect_uid")
     if isinstance(families.family_ops(card.family), families.Type4Ops):
-        return _type4_mutate(t, card, tlv, op=op, apply=apply, snapshot_path=snapshot_path)
+        return _type4_mutate(
+            t, card, tlv, op=op, apply=apply, snapshot_path=snapshot_path, expect_uid=expect_uid
+        )
     acc, blocks = _ndef_area(t, card, kw)
     changes = _area_changes(blocks, acc.block_size, tlv, clear_rest)
     return _mutate(
@@ -1222,6 +1253,7 @@ def _ndef_mutate(t, card, tlv: bytes, *, op, apply, clear_rest, include_keys, sn
         apply=apply,
         include_trailers=False,
         include_keys=include_keys,
+        expect_uid=expect_uid,
         snapshot_path=snapshot_path,
     )
 
@@ -1283,8 +1315,11 @@ def _is_type4(card: Card) -> bool:
     return isinstance(families.family_ops(card.family), families.Type4Ops)
 
 
-def _type4_mutate(t, card: Card, message: bytes, *, op, apply, snapshot_path) -> dict:
+def _type4_mutate(
+    t, card: Card, message: bytes, *, op, apply, snapshot_path, expect_uid=None
+) -> dict:
     """Type 4 has no block map: the NDEF file is block 0 of the diff/snapshot/journal."""
+    _require_uid(card, expect_uid)
     ops = families.Type4Ops()
     old = ops.read_ndef(t) or b""
     action = "unchanged" if old == message else "write"
@@ -1372,6 +1407,7 @@ def ndef_format(
         include_trailers=True,
         include_keys=include_keys,
         snapshot_path=snapshot_path,
+        expect_uid=keyargs.get("expect_uid"),
     )
 
 

@@ -117,6 +117,9 @@ P_KEY = Param("key", "string", "MIFARE Classic key to try first (12 hex digits)"
 P_KEY_TYPE = Param("key_type", "string", "key type for --key: A or B", default="A")
 P_KEYS_FILE = Param("keys_file", "string", "file of extra Classic keys, one per line")
 P_INCLUDE_KEYS = Param("include_keys", "boolean", "show key bytes instead of masking them")
+P_EXPECT_UID = Param(
+    "expect_uid", "string", "only write if the tag's UID matches this (the UID you previewed)"
+)
 P_TRAILERS = Param(
     "include_trailers", "boolean", "also write sector trailers and block 0 (dangerous)"
 )
@@ -224,9 +227,12 @@ def tag_write(
     keys_file: str | None = None,
     include_trailers: bool = False,
     include_keys: bool = False,
+    expect_uid: str | None = None,
     wait: int | None = None,
 ) -> dict:
     kw = _keys(key, key_type, keys_file)
+    if expect_uid:
+        kw["expect_uid"] = expect_uid
     with open_transport(ctx, wait) as t:
         return ops.write(
             t,
@@ -274,9 +280,12 @@ def tag_restore(
     keys_file: str | None = None,
     include_trailers: bool = False,
     include_keys: bool = False,
+    expect_uid: str | None = None,
     wait: int | None = None,
 ) -> dict:
     kw = _keys(key, key_type, keys_file)
+    if expect_uid:
+        kw["expect_uid"] = expect_uid
     common = dict(
         apply=ctx.apply,
         include_trailers=bool(include_trailers),
@@ -330,6 +339,7 @@ def ndef_write(
     key_type: str | None = None,
     keys_file: str | None = None,
     include_keys: bool = False,
+    expect_uid: str | None = None,
     wait: int | None = None,
 ) -> dict:
     data: str | bytes | None = payload
@@ -338,6 +348,8 @@ def ndef_write(
     raw = Path(raw_file).read_bytes() if raw_file else None
     message = ops.build_message(text=text, lang=lang, uri=uri, mime=mime, payload=data, raw=raw)
     kw = _keys(key, key_type, keys_file)
+    if expect_uid:
+        kw["expect_uid"] = expect_uid
     with open_transport(ctx, wait) as t:
         return ops.ndef_write(
             t, message, apply=ctx.apply, include_keys=_incl(ctx, include_keys), **kw
@@ -351,9 +363,12 @@ def ndef_erase(
     key_type: str | None = None,
     keys_file: str | None = None,
     include_keys: bool = False,
+    expect_uid: str | None = None,
     wait: int | None = None,
 ) -> dict:
     kw = _keys(key, key_type, keys_file)
+    if expect_uid:
+        kw["expect_uid"] = expect_uid
     with open_transport(ctx, wait) as t:
         return ops.ndef_erase(t, apply=ctx.apply, include_keys=_incl(ctx, include_keys), **kw)
 
@@ -366,9 +381,12 @@ def ndef_format(
     key_type: str | None = None,
     keys_file: str | None = None,
     include_keys: bool = False,
+    expect_uid: str | None = None,
     wait: int | None = None,
 ) -> dict:
     kw = _keys(key, key_type, keys_file)
+    if expect_uid:
+        kw["expect_uid"] = expect_uid
     with open_transport(ctx, wait) as t:
         return ops.ndef_format(t, apply=ctx.apply, include_keys=_incl(ctx, include_keys), **kw)
 
@@ -418,6 +436,7 @@ def build_verbs() -> list[Verb]:
             "Write whole blocks starting at BLOCK (verified by read-back)",
             tag_write,
             (
+                P_EXPECT_UID,
                 Param("block", "integer", "first block/page", required=True, positional=True),
                 Param(
                     "data",
@@ -454,6 +473,7 @@ def build_verbs() -> list[Verb]:
             "Write a dump back (trailers/block 0 skipped unless --include-trailers)",
             tag_restore,
             (
+                P_EXPECT_UID,
                 Param(
                     "file",
                     "string",
@@ -493,6 +513,7 @@ def build_verbs() -> list[Verb]:
             "Write an NDEF record (text, URI, MIME or raw message)",
             ndef_write,
             (
+                P_EXPECT_UID,
                 Param("text", "string", "text record content"),
                 Param("lang", "string", "text record language", default="en"),
                 Param("uri", "string", "URI record"),
@@ -511,7 +532,7 @@ def build_verbs() -> list[Verb]:
             "erase",
             "Replace the NDEF message with an empty one",
             ndef_erase,
-            (*KEY_PARAMS, P_INCLUDE_KEYS, P_WAIT),
+            (P_EXPECT_UID, *KEY_PARAMS, P_INCLUDE_KEYS, P_WAIT),
             mutating=True,
         ),
         Verb(
@@ -521,6 +542,7 @@ def build_verbs() -> list[Verb]:
             "fixed NFC Forum template)",
             ndef_format,
             (
+                P_EXPECT_UID,
                 Param(
                     "include_trailers",
                     "boolean",

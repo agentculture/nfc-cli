@@ -199,3 +199,38 @@ def test_recover_reauths_with_access_bit_keys_not_hardcoded_b(tmp_path, monkeypa
     # the post-mute re-auth used the access-bit key set ("A",), never a forced ("B",)
     assert ("B",) not in auth_calls
     assert ("A",) in auth_calls
+
+
+def test_snapshot_must_be_complete_before_write(tmp_path):
+    """Review finding #1: an incomplete pre-write snapshot (a sector could not be read)
+    must abort the write, not proceed with a snapshot that cannot undo it."""
+    from nfc_cli.nfc import fake as fakemod
+
+    blocks = fakemod.MifareClassic1K.blank_blocks(bytes.fromhex("11223344"))
+    secret = bytes.fromhex("A1A2A3A4A5A6")
+    blocks[5 * 4 + 3] = secret + fakemod.TRANSPORT_TRAILER_TAIL + secret  # sector 5 unreadable
+    card = fakemod.MifareClassic1K(bytes.fromhex("11223344"), blocks=blocks)
+    t = fakemod.FakeTransport(card)
+    t.power_on()
+
+    before = [bytes(b) for b in t.card.blocks]
+    with pytest.raises(ops.SnapshotFailed):
+        ops.write(t, 4, bytes(range(16)), apply=True)  # target sector 1; sector 5 unreadable
+    assert [bytes(b) for b in t.card.blocks] == before  # nothing written
+
+
+def test_write_refuses_swapped_tag(tmp_path):
+    """Review finding #2: expect_uid makes the server refuse a write to a tag other than
+    the one that was previewed."""
+    t = load_scenario("blank-classic")
+    t.power_on()
+    present_uid = t.card.uid.hex()
+
+    before = [bytes(b) for b in t.card.blocks]
+    with pytest.raises(ops.CardChanged):
+        ops.write(t, 4, bytes(range(16)), apply=True, expect_uid="deadbeef")
+    assert [bytes(b) for b in t.card.blocks] == before  # nothing written
+
+    # the correct UID proceeds
+    res = ops.write(t, 4, bytes(range(16)), apply=True, expect_uid=present_uid)
+    assert res["applied"] and res["summary"]["write"] == 1

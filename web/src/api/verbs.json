@@ -182,6 +182,10 @@
       "schema": {
         "type": "object",
         "properties": {
+          "expect_uid": {
+            "type": "string",
+            "description": "only write if the tag's UID matches this (the UID you previewed)"
+          },
           "block": {
             "type": "integer",
             "description": "first block/page"
@@ -289,6 +293,10 @@
       "schema": {
         "type": "object",
         "properties": {
+          "expect_uid": {
+            "type": "string",
+            "description": "only write if the tag's UID matches this (the UID you previewed)"
+          },
           "file": {
             "type": "string",
             "description": "dump file, or with --resume the journal to finish"
@@ -418,6 +426,10 @@
       "schema": {
         "type": "object",
         "properties": {
+          "expect_uid": {
+            "type": "string",
+            "description": "only write if the tag's UID matches this (the UID you previewed)"
+          },
           "text": {
             "type": "string",
             "description": "text record content"
@@ -489,6 +501,10 @@
       "schema": {
         "type": "object",
         "properties": {
+          "expect_uid": {
+            "type": "string",
+            "description": "only write if the tag's UID matches this (the UID you previewed)"
+          },
           "key": {
             "type": "string",
             "description": "MIFARE Classic key to try first (12 hex digits)"
@@ -531,6 +547,10 @@
       "schema": {
         "type": "object",
         "properties": {
+          "expect_uid": {
+            "type": "string",
+            "description": "only write if the tag's UID matches this (the UID you previewed)"
+          },
           "include_trailers": {
             "type": "boolean",
             "description": "confirm the template trailer writes (required over MCP / web API)"

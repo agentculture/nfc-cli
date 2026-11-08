@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.2] - 2026-11-08
+
+### Fixed
+
+- The web console no longer embeds the write secret in the page when bound to a public address (`--bind-public`); there the operator is given the secret on the terminal instead, so a network client that loads the page cannot read it and defeat the guard. (code review)
+- A write never proceeds on an incomplete pre-write snapshot: if any sector cannot be read, the write is refused rather than saved with an image that could not undo it. (code review)
+- Mutating verbs accept `expect_uid`; the web console sends the previewed tag's UID on Apply, and the server refuses the write if a different tag is present, so a tag swapped between preview and Apply is never written. (code review)
+
 ## [0.12.1] - 2026-11-08
 
 ### Fixed

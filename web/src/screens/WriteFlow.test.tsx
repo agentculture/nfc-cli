@@ -62,7 +62,7 @@ describe("WriteFlow: preview first, then an explicit Apply", () => {
     );
     await userEvent.click(apply);
     await waitFor(() => expect(calls).toHaveLength(2));
-    expect(calls[1].body).toEqual({ block: 4, data: "11".repeat(16), apply: true });
+    expect(calls[1].body).toEqual({ block: 4, data: "11".repeat(16), apply: true, expect_uid: "cb30c560" });
     expect(await screen.findByRole("status")).toHaveTextContent(/wrote 1 block/i);
     expect(onApplied).toHaveBeenCalled();
   });
@@ -86,7 +86,7 @@ describe("WriteFlow: preview first, then an explicit Apply", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /write 2 blocks/i })).toBeEnabled());
     await userEvent.click(screen.getByRole("button", { name: /write 2 blocks/i }));
     await waitFor(() =>
-      expect(calls.at(-1)!.body).toEqual({ include_trailers: true, apply: true }),
+      expect(calls.at(-1)!.body).toEqual({ include_trailers: true, apply: true, expect_uid: "cb30c560" }),
     );
   });
 

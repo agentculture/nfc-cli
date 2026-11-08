@@ -11,6 +11,7 @@ import html
 import ipaddress
 import json
 import os
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -239,7 +240,7 @@ class Handler(BaseHTTPRequestHandler):
         if not target.is_file() or dist.resolve() not in target.parents:
             target = dist / "index.html"  # SPA fallback
         data = target.read_bytes()
-        if target.name == "index.html":
+        if target.name == "index.html" and self.app.embed_secret:
             meta = f'<meta name="nfc-cli-secret" content="{html.escape(self.app.secret)}">'
             text = data.decode("utf-8")
             text = (
@@ -309,6 +310,10 @@ class NfcHTTPServer(ThreadingHTTPServer):
         super().__init__(addr, Handler)
         self.factory = factory
         self.secret = secret
+        # Only hand the write secret to the page on a loopback bind. On a public bind,
+        # anyone who can load the page would otherwise read the secret and defeat the
+        # guard, so there the operator passes it deliberately (printed by serve()).
+        self.embed_secret = _is_loopback(addr[0])
         self.state = AppState(factory)
         self.dist = _dist_dir()
         self.stopping = threading.Event()
@@ -324,6 +329,13 @@ def _family(host: str):
     import socket
 
     return socket.AF_INET6 if ":" in host.strip("[]") else socket.AF_INET
+
+
+def _is_loopback(host: str) -> bool:
+    try:
+        return ipaddress.ip_address(host.strip("[]")).is_loopback
+    except ValueError:
+        return host in ("localhost", "")
 
 
 def _make_factory(fake: str | bool | None) -> Callable[[], Any]:
@@ -369,6 +381,13 @@ def serve(
     srv = make_server(host, port, bind_public, fake)
     h, p = srv.server_address[:2]
     print(f"nfc-cli web UI on http://{h}:{p}/  (Ctrl-C to stop)", flush=True)
+    if not srv.embed_secret:
+        # Public bind: the page does not carry the secret, so give it to the operator here.
+        print(
+            f"public bind: writes require this secret (paste it in the UI): {srv.secret}",
+            file=sys.stderr,
+            flush=True,
+        )
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

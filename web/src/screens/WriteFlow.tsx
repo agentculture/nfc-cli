@@ -130,7 +130,10 @@ export function WriteFlow(props: WriteFlowProps) {
     if (!params || !preview) return;
     const mine = ++seq.current;
     setBusy(true);
-    const res = await callVerb<WriteResult>(noun, verb, body(params, true));
+    // Carry the previewed tag's UID so the server refuses the write if the tag was
+    // swapped between preview and apply. The browser's own wrongTag check is only feedback.
+    const req = { ...body(params, true), expect_uid: preview.uid };
+    const res = await callVerb<WriteResult>(noun, verb, req);
     if (mine !== seq.current) return;
     setBusy(false);
     setPreview(null);

@@ -329,7 +329,7 @@ export async function mockApi(page: Page, scenario: ApiScenario): Promise<Captur
     for (let i = 0; i < 400 && !stateServed; i++) {
       await new Promise((r) => setTimeout(r, 5));
     }
-    await new Promise((r) => setTimeout(r, 50)); // let the client apply the state first
+    await new Promise((r) => setTimeout(r, 300)); // let the client mount + apply the state first
   };
   await page.route("**/api/**", async (route: Route) => {
     const req = route.request();

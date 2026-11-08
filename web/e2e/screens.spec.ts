@@ -118,7 +118,7 @@ test.describe("x3 scenario (blank MIFARE Classic 1K)", () => {
     expect(calls.some((c) => c.body.apply === true)).toBe(false);
     await page.getByRole("button", { name: `Write 1 block to tag ${X3_UID}` }).click();
     await expect(page.getByRole("status").filter({ hasText: "Wrote 1 block" })).toBeVisible();
-    expect(calls.find((c) => c.body.apply === true)!.body).toEqual({ block: 4, data: "11".repeat(16), apply: true });
+    expect(calls.find((c) => c.body.apply === true)!.body).toEqual({ block: 4, data: "11".repeat(16), apply: true, expect_uid: X3_UID });
   });
 
   test("writing a trailer without the toggle is refused in words", async ({ page }) => {
@@ -180,7 +180,7 @@ test.describe("NTAG scenario", () => {
     await page.getByRole("button", { name: "Preview message" }).click();
     await page.getByRole("button", { name: `Write 4 blocks to tag ${NTAG_UID}` }).click();
     await expect(page.locator(".records")).toContainText("https://x.org");
-    expect(calls.find((c) => c.body.apply === true)!.body).toEqual({ uri: "https://x.org", apply: true });
+    expect(calls.find((c) => c.body.apply === true)!.body).toEqual({ uri: "https://x.org", apply: true, expect_uid: "04a1b2c3d4e580" });
     await expectNoSeriousAxeViolations(page, "ntag ndef");
   });
 });

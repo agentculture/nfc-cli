@@ -24,7 +24,7 @@ export interface VerbSpec {
 export const VERBS: VerbSpec[] = (data as unknown as { verbs: VerbSpec[] }).verbs;
 
 /** Flags the write flow owns (dry-run/apply, key reveal, trailer gate); never plain form fields. */
-export const CONTROL_PARAMS = ["apply", "include_keys", "include_trailers"] as const;
+export const CONTROL_PARAMS = ["apply", "include_keys", "include_trailers", "expect_uid"] as const;
 
 export function getVerb(noun: string, verb: string): VerbSpec {
   const spec = VERBS.find((v) => v.noun === noun && v.verb === verb);

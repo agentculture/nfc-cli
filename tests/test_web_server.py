@@ -190,3 +190,27 @@ def test_refused_bind_opens_no_socket(monkeypatch):
     monkeypatch.setattr(web, "NfcHTTPServer", boom)
     with pytest.raises(web.BindRefused):
         web.serve("0.0.0.0")
+
+
+def test_public_bind_does_not_embed_secret(tmp_path, monkeypatch):
+    """Review finding #3: a page served on a public bind must not carry the write secret,
+    or any network client could read it and defeat the guard."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    s = web.make_server(host="0.0.0.0", port=0, bind_public=True, fake="x3")
+    assert s.embed_secret is False
+    d = tmp_path / "dist"
+    d.mkdir()
+    (d / "index.html").write_text("<html><head></head><body>hi</body></html>")
+    s.dist = d
+    th = threading.Thread(target=s.serve_forever, daemon=True)
+    th.start()
+    try:
+        c = http.client.HTTPConnection("127.0.0.1", s.server_address[1], timeout=5)
+        c.request("GET", "/", None, {"Host": f"127.0.0.1:{s.server_address[1]}"})
+        raw = c.getresponse().read()
+        c.close()
+        assert s.secret.encode() not in raw
+        assert b"nfc-cli-secret" not in raw
+    finally:
+        s.shutdown()
+        s.server_close()
