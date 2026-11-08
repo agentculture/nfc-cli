@@ -18,6 +18,7 @@ from nfc_cli.nfc.fake import load_scenario
 def _isolated_state(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setattr(classic.time, "sleep", lambda s: None)  # no real waiting in tests
 
 
 def test_genuine_card_block0_read_only():

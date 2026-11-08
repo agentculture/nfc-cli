@@ -7,6 +7,7 @@ power-cycles the card before raising (the live probe needed this).
 
 from __future__ import annotations
 
+import time
 from typing import Iterable
 
 from nfc_cli.nfc import ndef
@@ -207,13 +208,34 @@ def probe_block0_writable(t: Transport, key: bytes | str = DEFAULT_KEYS[0]) -> b
     """
     authenticate(t, 0, key, "A")
     current = read_block(t, 0)
+    uid = current[:4]
     try:
         _ok(*t.transmit(bytes([0xFF, 0xD6, 0, 0, 0x10]) + current), "block 0 self-write")
     except (ApduError, CardRemoved):
-        _power_cycle(t)
-        get_uid(t)  # confirm the same tag is still reachable; re-raises if it is gone
+        # A refused block-0 write NAKs and the chip halts; the reader reports the card
+        # mute. Re-acquire the same tag before concluding "read-only" -- on a weakly
+        # coupled tag one power-cycle is not enough, so retry a few times.
+        _reacquire(t, uid)
         return False
     return True
+
+
+def _reacquire(t: Transport, uid: bytes, attempts: int = 8, delay: float = 0.3) -> None:
+    """Power-cycle until the tag with ``uid`` answers again; NoCard/CardRemoved if it never does."""
+    last: Exception | None = None
+    for _ in range(attempts):
+        try:
+            _power_cycle(t)
+            if get_uid(t)[:4] == uid:
+                return
+        except (ApduError, NfcError) as exc:
+            last = exc
+        time.sleep(delay)
+    if last is not None:
+        raise last
+    from nfc_cli.nfc.errors import CardRemoved as _CR
+
+    raise _CR("the tag did not answer again after a refused block-0 write")
 
 
 # ---------------------------------------------------------------- key dictionary
