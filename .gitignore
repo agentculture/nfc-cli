@@ -243,3 +243,9 @@ skills.local.yaml
 .devague/questions/
 
 .devague/reviews/
+
+# Web console (web/) — Node deps and build output
+web/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/

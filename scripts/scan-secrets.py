@@ -40,9 +40,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Files this scanner should never inspect: its own source (full of example
 # patterns/regexes in comments), its own test fixtures (deliberately planted
 # fake secrets used to prove the scanner works), and lockfiles (vendored
-# hashes, not secrets).
+# hashes and registry/funding metadata, not secrets).
 SELF_EXCLUDE = {"scripts/scan-secrets.py", "tests/test_scan_secrets.py"}
-EXCLUDE_SUFFIXES = (".lock",)
+EXCLUDE_SUFFIXES = (".lock", "package-lock.json")
 
 # ---------------------------------------------------------------------------
 # Check 1: credential / API-key-shaped strings
