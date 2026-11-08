@@ -62,11 +62,24 @@
   - honesty: a parity test asserts the set of MCP tool names equals the set of CLI verb paths and that mutating tools dry-run without apply=true
 - CLI verbs are defined once in a registry (name, summary, params schema, mutating flag, handler) that argparse, the MCP server, and the web UI's /api/ all consume, so the three surfaces cannot drift (culture-rules cli/registry.py pattern)
   - honesty: CLI argparse, MCP `tool_specs` and /api/ routes are all generated from the same registry object (single source asserted in a test)
-- Tag families: ISO14443A MIFARE Classic 1K/4K/Mini (Classic sectors/keys), MIFARE Ultralight/NTAG21x (NFC Forum Type 2, page read/write), ISO14443-4 / Type 4 (raw APDUs + NDEF application D2760000850101), ISO15693 / Type 5 (block read/write), FeliCa / Type 3 (read via reader pseudo-APDUs where the ACR1552 supports it); family detected from the PC/SC ATR card-name bytes
+- Tag families (per ACR1552 manual 1.09 §1 + read/update-binary address tables): ISO14443A — MIFARE Classic 1K/4K/Mini (sectors/keys), MIFARE Ultralight/NTAG21x (Type 2 pages), Topaz (Type 1); ISO14443-4 A and B — Type 4 / T=CL via raw APDUs + NDEF app D2760000850101; ISO14443B-3 proprietary — SRI/SRIX (SRIX4K/SRT512), Picopass/iCLASS-legacy blocks, CTS, Innovatron; ISO15693 — Type 5 blocks; ISO/IEC 18092 NFC-F — FeliCa (Type 3) reads. Family detected from the PC/SC ATR (SS byte + card-name bytes, incl. Picopass 3B8F8001804F0CA0000003060600xx); polling types the reader skips by default (Topaz, SRI, Innovatron, Picopass-15693, CTS) are enabled only via the snapshot-and-restore boundary
   - instruction: unit-test detection with recorded ATRs per family; live-test whichever families are physically available
   - honesty: detection unit tests pass for a recorded ATR per family; each family's read path has a fake-card test
+  - honesty: detection unit tests pass for a recorded/manual ATR per family (incl. Picopass, SRIX, FeliCa, ISO15693); each family's read path has a fake-card test
 - Command surface: reader list|info|overview; tag info|uid|wait|read|write|dump|restore|apdu|overview (Classic keys via --key/--key-type/--keys-file); ndef read|write (--text/--uri/--mime/--raw-file)|erase|overview; ui serve|overview; mcp; dump format is JSON (atr, uid, family, per-sector/page hex, keys used) with a --format bin option
   - honesty: the parser tree matches the listed surface and each path has an explain entry
+- Reader access is exclusive (probe: second process claiming interface 0 gets USBError 16 Resource busy). Every operation claims and releases the interface, an advisory lock file under $`XDG_RUNTIME_DIR` records the holder (pid + command), and a busy reader raises CliError exit 2 naming the holder (e.g. 'nfc-cli ui serve', or pcscd if installed later) instead of a raw USBError; ui serve and mcp never hold the interface between operations
+  - honesty: a test holds the lock/claim in one process and asserts a second CLI call exits 2 naming the holder; live: tag info works while ui serve is idle
+- Before any --apply write (write, restore, ndef write/erase/format) the current readable contents of the target tag are snapshotted to a timestamped dump file (0600, under the user data dir) and its path is printed; 'tag restore SNAPSHOT --apply' is the documented rollback
+  - honesty: fake-card test: --apply write creates the snapshot file (mode 0600) before the first write APDU; snapshot failure aborts with zero writes
+- Writes are journaled: each block/page write is followed by a read-back compare and appended to a per-operation journal; an interrupted restore (card lifted, USB error) reports written/verified/pending blocks and 'tag restore --resume JOURNAL' completes it
+  - honesty: fake-card test removes the card mid-restore; journal lists pending blocks and --resume completes to a byte-identical read-back
+- Dumps and journals contain sector keys/trailers: files are written 0600, keys are masked in text output and traces, and MCP/API responses redact key bytes unless the caller passes `include_keys`; dumps never land inside the repo tree by default (scan-secrets would not catch binary/hex keys)
+  - honesty: tests assert file mode 0600 and that text/--trace/MCP/API outputs contain no key bytes without `include_keys`
+- Observability: --trace prints every APDU/escape exchanged (direction, bytes, SW, timing) to stderr with key bytes masked, available on every tag/reader/ndef verb and as a server/MCP log option
+  - honesty: --trace output on a fake read shows each APDU with masked keys
+- Trailer-writing operations over MCP and the web API (ndef format, restore with `include_trailers`) require apply=true AND the explicit `include_trailers`=true / format=true argument, and every such call is appended to an audit log (timestamp, surface, tag UID, blocks)
+  - honesty: MCP and API tests show a trailer-writing call with apply=true but without `include_trailers`/format sends no write APDU, and a permitted call appends an audit-log line
 
 ## Honesty conditions
 
@@ -80,6 +93,8 @@
 - the three commands run green locally and in CI
 - live outputs for the three checks are recorded in the PR
 - e2e + axe results and a playwright-MCP screenshot are attached to the PR
+- a fake-card test formats a blank Classic 1K and an Android phone (NFC Tools) reads the written URI from the real X3
+- a test asserts no E0 00 00 9x escape is ever constructed; live: polling type reads 07 05 after any config-changing command
 
 ## Success signals
 
@@ -90,20 +105,24 @@
 ## Scope / boundaries
 
 - pcscd/pyscard are not required: not installed (which pcscd empty, import smartcard fails) and sudo needs a password; a PC/SC backend may be added optionally later but the default USB backend must work on this host without it
-- Restore never writes sector trailers (block 3 of each sector) or manufacturer block 0 unless --include-trailers is passed explicitly; a wrong access-bits write permanently bricks a MIFARE Classic sector
+- Restore never writes sector trailers (block 3 of each sector) or manufacturer block 0 unless --include-trailers is passed explicitly; the single sanctioned exception is 'ndef format', which writes trailers only from the fixed, parity-checked NFC-Forum template (user decision 2026-11-08)
+- Reader configuration is read-mostly: the CLI may read reader settings and set the PICC polling type only with snapshot-then-restore in an independent step that verifies by read-back; it never sets the HID keyboard / operating mode (E0 00 00 9x), because 'Only HID Keyboard' mode removes the CCID interface the CLI depends on
 
 ## Non-goals
 
 - No MIFARE Classic key cracking (nested/darkside/hardnested attacks) — only known keys and a default-key dictionary
 - No image push to the Xteink Tong Card or any NFC e-ink display in this frame (v2 park)
 - No PC/SC (pcscd/pyscard) backend in this frame; the transport interface leaves room to add one later
+- No NFC peer-to-peer (ISO 18092 active/passive initiator-target with LLCP/SNEP): the ACR1552 manual documents reader/writer, card emulation and keyboard emulation modes only
 
 ## Assumptions
 
-- The arduino user can open the reader without root: /dev/bus/usb/004/002 carries a user:arduino:rw- ACL (logind seat ACL); this may not hold on other hosts or after replug, so a permissions failure must map to `EXIT_ENV_ERROR` with a udev-rule remediation
+- The arduino user opens the reader without root only via systemd-logind uaccess: udev tags the device ':security-device:seat:systemd:uaccess:' and the ACL follows the active seat0 session (tty2 today). A headless boot, SSH-only use, or a system service has no seat session and gets EACCES — so permission failures map to exit 2 with a remediation that ships a udev rule (072f:2303 -> GROUP/MODE) in docs
 - UI verification uses the playwright MCP: node/npx are now installed in user space (Node v26.13.0 LTS under ~/.local/lib/nodejs, wrappers in ~/.local/bin; libatomic.so.1 extracted from the libatomic1 deb into ~/.local/lib/nodejs/lib via `LD_LIBRARY_PATH` in the node wrapper). The MCP needs a reconnect (/mcp) to pick it up; Chromium system libraries on aarch64 remain unverified (v1)
 - Confirmed on hardware 2026-11-08: the Xteink X3 NFC is a MIFARE Classic 1K (PC/SC ATR 3b8f8001804f0ca000000306030001000000006a, SS=03 ISO14443A-3, card name 0001), UID cb30c560 (4-byte, BCC 5e), SAK 08 / ATQA 0004 in block 0
 - Block 0 manufacturer data reads 6263646566676869 ('bcdefghi'), the signature of Chinese MIFARE Classic clones commonly sold as UID-changeable 'magic' cards (gen1a/CUID); this fits Xteink's reported 'card emulation for personal access cards' feature — i.e. the X3 may be meant to receive a cloned access card including its UID
+- NDEF on MIFARE Classic (the X3 and the transparent sticker) requires formatting per the NFC Forum / NXP MIFARE Classic NDEF mapping: MAD in sector 0 with key A A0A1A2A3A4A5 and NDEF sectors with key A D3F7D3F7D3F7 and NDEF access bits — i.e. writing sector trailers, which c23 forbids without --include-trailers (from memory of NXP AN1304/AN1305, not re-read this session)
+- Phone-side verification is Android-only: iPhones cannot read MIFARE Classic NDEF (spokenlikeageek 2026-09-09: NFC Tools on iPhone can't read/write the X3; crosspoint discussion 2259: iPhone unreliable), so 'tap the X3 with a phone' success means Android
 
 ## Scope exploration
 
@@ -168,13 +187,47 @@
   - seeds: `c28`
 - `s32` — `culture-rules culture_rules/cli/registry.py (Verb, Context(apply))`: tools.py builds MCP tools from REGISTRY.verbs(); handlers receive Context(client, apply) so dry-run is uniform
   - seeds: `c29`
+- `s33` — `User's spare tags (2026-11-08 live scan)`: transparent sticker = MIFARE Classic 1K, UID 3d100a1e, blank, key A FFFFFFFFFFFF, block 0 manufacturer bytes 'bcdefghi' (same clone signature as the X3) — a valid byte-copy target for X3 data blocks; the card and the spot sticker were not detected with default polling (14443A/B, FeliCa, ISO15693) nor with all types enabled (Topaz, SRI, Innovatron, Picopass, CTS) — likely 125 kHz/UHF, out of the ACR1552's reach; reader polling type restored to factory 07 05 after a failed in-process restore
+  - seeds: `c21`, `c27`
+- `s34` — `challenge pass / concurrency lens: two-process claim probe (scratchpad hold.py + second.py)`: process A holding `claim_interface`(0) makes process B fail with \[Errno 16\] Resource busy — CLI, MCP and ui serve contend for one reader
+  - seeds: `c43`
+- `s35` — `challenge pass / data-loss + failure-mode lens: X3 coupling dropouts (s30) + restore semantics (c24)`: a write sequence on a tag that drops out mid-run leaves a mixed old/new card; nothing in the frame captured pre-write backup or partial-write recovery
+  - seeds: `c44`, `c45`
+- `s36` — `challenge pass / unstated-assumptions lens: c24 (NDEF writes to X3) vs c23 (trailer protection)`: NDEF-on-Classic needs trailer writes; the frame confirmed both 'write NDEF to the X3' and 'never write trailers' without noticing the conflict
+  - seeds: `c46`
+- `s37` — `challenge pass / security lens: dump format (c35) + scripts/scan-secrets.py`: dump JSON carries 'keys used' and trailer bytes; scan-secrets targets JSON config URLs/tokens, not MIFARE keys
+  - seeds: `c47`
+- `s38` — `challenge pass / adjacent-systems lens: udevadm info /dev/bus/usb/004/002 + loginctl`: TAGS=:security-device:seat:systemd:uaccess:, `ID_FOR_SEAT` set; one active session arduino seat0 tty2 — access is session-bound, not group-bound
+  - seeds: `c3`
+- `s39` — `challenge pass / reversibility lens: ACR1552 manual 6.1.6 + 6.1.14 (scratchpad acs/acr1552.txt)`: polling type and keyboard/operating mode are persistent reader settings; operating mode 00h = Only HID Keyboard (default 01h Only CCID); interface 2 is bound to usbhid today
+  - seeds: `c48`
+- `s40` — `challenge pass / observability lens: frame claims c7, c27`: errors map to exit codes but nothing lets an operator see what was sent to the tag when a write misbehaves
+  - seeds: `c49`
+- `s41` — `challenge pass / overlooked-actors lens: phone users of the X3 tag`: frame assumed generic phone readers; research says iPhone support for the X3's Classic tag is partial/unreliable
+  - seeds: `c50`
+- `s42` — `challenge pass / operations lens: embodiment hatch_build.py (staleness-aware npm ci && npm run build, NPM_CI_TIMEOUT_S 600)`: a wheel/editable build runs npm: CI test job, publish.yml and every 'uv sync' on the board need Node on PATH or a skip path — a how-to-build risk for the plan, not a spec change
+- `s43` — `challenge pass / security lens: web UI + MCP (c18, c19, c28)`: loopback bind + install secret + Origin/Host allow-list cover browser CSRF/DNS rebinding; examined and kept; residual: any local process can read the 0600 secret as the same user — accepted, same as embodiment
+- `s44` — `challenge pass / migration lens: none`: no persisted state to migrate: dumps/journals are new files; frame has no schema migration — examined, clean
+- `s45` — `challenge pass / adjacent-systems lens: ACR1552 manual 1.09 lines 119-121, 1955-1964, 3185-3245`: reader supports ISO14443 A/B, ISO15693, ISO18092, MIFARE, FeliCa, NFC tags, SRI/SRIX, CTS, Innovatron, Picopass, Topaz; Picopass ATRs carry SS 06; block-address tables exist for SRIX/PicoPass/CTS — c34 previously omitted Type B and 18092
+  - seeds: `c34`
+- `s46` — `challenge pass / reversibility lens: ACR1552 manual §6.1.15 Card Emulation`: emulation modes 02h Type 2 Tag (lock bytes unsupported, UID programmable) and 03h FeliCa; must enter Card Read/Write mode before switching — a mode the CLI must never leave the reader stuck in
+  - seeds: `c51` (rejected)
 
 ## Decisions
 
 - User decision 2026-11-08: confirmed all proposed claims/honesty conditions except duplicate c15 (rejected); card cloning onto the X3 is deferred as a follow-up
+- User decisions 2026-11-08 (challenge pass): confirm all challenge findings, honesty conditions, obligations and lapse l1; ndef format = sole trailer-write exception via fixed NFC-Forum template; trailer-writing MCP/API tools need apply=true plus `include_trailers`/format=true and are logged (parity kept); card emulation parked as follow-up
+
+## Hard questions
+
+- contradiction with c23? (resolved: User 2026-11-08: yes — ndef format may write sector trailers only from the fixed, validated NFC-Forum template (MAD + NDEF keys/access bits, parity-checked before sending); arbitrary trailer writes still need --include-trailers)
+- May 'ndef format' write sector trailers using only a fixed, validated NFC-Forum template (MAD + NDEF keys/access bits, access-bit parity checked before sending), as the single sanctioned exception to c23?
 
 ## Open parks
 
 - [unknown_nonblocking] Whether headless Chromium can run on this aarch64 board without root-installed system libraries (needed for playwright verification)
 - [unknown_nonblocking] The Tong Card (NFC-powered e-ink display, 428x428 red/yellow/black/white) is a separate device with unknown chip/protocol; image push to it is out of this frame unless the user says that's the target
+- [unknown_nonblocking] Whether disabling the reader's RF-off interval (polling option bit 1, default 8Bh) improves detection of the weakly coupled X3 — cheap probe during build
 - [follow_up] Clone other cards (e.g. access cards incl. UID block 0) onto the X3's suspected magic MIFARE Classic tag: gen1a/CUID detection + guarded block-0 write
+- [follow_up] Build hook needs Node wherever the wheel is built (CI tests, publish, uv sync on the board); route as a plan risk with a skip-when-dist-fresh path
+- [follow_up] Reader card emulation ('nfc-cli emulate type2|felica', ACR1552 §6.1.15, programmable UID; must always return to read/write mode) — deferred by user 2026-11-08
