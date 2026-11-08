@@ -1,6 +1,6 @@
 [project]
 name = "nfc-cli"
-version = "0.12.6"
+version = "0.12.7"
 description = "Control NFC reader-writers via USB."
 readme = "README.md"
 license = "Apache-2.0"

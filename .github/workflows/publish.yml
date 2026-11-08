@@ -32,7 +32,7 @@ jobs:
 
       - run: uv python install 3.12
 
-      - run: uv sync
+      - run: uv sync --locked
 
       - run: uv run pytest -n auto -v
 
@@ -57,7 +57,7 @@ jobs:
 
       - run: uv python install 3.12
 
-      - run: uv sync
+      - run: uv sync --locked
 
       - name: Set dev version
         run: |
@@ -96,7 +96,7 @@ jobs:
 
       - run: uv python install 3.12
 
-      - run: uv sync
+      - run: uv sync --locked
 
       - name: Build and publish to PyPI
         run: |

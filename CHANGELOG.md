@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.7] - 2026-11-08
+
+### Changed
+
+- CI installs Python dependencies with `uv sync --locked` (from the committed `uv.lock`) in both workflows, for deterministic, supply-chain-safe builds. (SonarCloud githubactions:S8544)
+
 ## [0.12.6] - 2026-11-08
 
 ### Fixed
