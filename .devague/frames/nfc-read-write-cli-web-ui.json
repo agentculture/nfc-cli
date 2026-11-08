@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-08T14:18:56Z",
-  "updated": "2026-11-08T17:42:09Z",
+  "updated": "2026-11-08T18:09:18Z",
   "claims": [
     {
       "id": "c1",
@@ -1617,6 +1617,28 @@
       "refs": [
         "plan t14",
         "tests/test_web_server.py"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l18",
+      "code": "control-absent",
+      "what": "t16: an early probe ran tag dump / ndef format / ndef write against the fake X3 without redirecting XDG dirs, writing into the user's real ~/.local/state/nfc-cli (audit.log with a fake surface=api record, journals) and ~/.local/share/nfc-cli/snapshots (one fake snapshot, unreported); agent deleted some files, the rest await the user's decision",
+      "skipped_check": "point XDG_* at the scratchpad before any probe that can write state",
+      "refs": [
+        "plan t16"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l19",
+      "code": "grader-unverified",
+      "what": "t16: e2e fixture responses are hand-built from observed shapes (e.g. fixture firmware string 'ACR1552 1.05' vs real 'ACR1552 R FW 1.06.02'); nothing keeps them in step with the Python result shapes",
+      "skipped_check": "contract test generating fixtures from the real server/fake transport",
+      "refs": [
+        "plan t16"
       ],
       "origin": "llm",
       "status": "proposed"
