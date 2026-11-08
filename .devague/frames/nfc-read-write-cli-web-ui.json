@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-08T14:18:56Z",
-  "updated": "2026-11-08T17:37:32Z",
+  "updated": "2026-11-08T17:37:52Z",
   "claims": [
     {
       "id": "c1",
@@ -1583,6 +1583,28 @@
       "refs": [
         "tests/test_integration_fake_transport.py",
         "deviation d1"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l15",
+      "code": "control-absent",
+      "what": "t11: ops.py/verbs.py written before tests; no red phase except the format-no-op test (which caught a real bug)",
+      "skipped_check": "write failing tests first",
+      "refs": [
+        "plan t11"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l16",
+      "code": "assumption-for-measurement",
+      "what": "t11: _ClassicAccess.write key-B fallback (power-cycle + retry with key B) and trailer verify-by-authenticate rest on recalled MIFARE access rules; fallback has no test and no hardware run",
+      "skipped_check": "a fake scenario where key A cannot write + live X3 format in t18",
+      "refs": [
+        "plan t11"
       ],
       "origin": "llm",
       "status": "proposed"

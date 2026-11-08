@@ -65,6 +65,7 @@ def test_classic_trailer_and_block0_guarded_with_zero_writes() -> None:
     t = load_scenario("x3")
     t.power_on()
     classic.authenticate(t, 0, "FFFFFFFFFFFF", "A")
+
     def writes() -> int:
         return sum(1 for kind, a in t.log if kind == "apdu" and a[:2] == b"\xff\xd6")
 
