@@ -16,6 +16,9 @@ config:
 
 ignores:
   - "node_modules/**"
+  # web console deps and build output (npm ci in web/)
+  - "web/node_modules/**"
+  - "web/dist/**"
   - ".local/**"
   - ".afi/**"
   - ".teken/**"

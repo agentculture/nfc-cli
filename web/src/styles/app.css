@@ -1,0 +1,203 @@
+/*
+ * nfc-cli console shell styles (plan task t15).
+ *
+ * Colour and type come ONLY from culture-design tokens (tokens.css): every
+ * colour is a var(--…) reference, every font is var(--font-display|body|mono).
+ * No literal colour values belong in this file. Direction: docs/ui-design.md.
+ */
+
+/* ---------- a11y baseline ---------- */
+
+/* 44x44 minimum target for every interactive control. */
+.skip-link,
+.console-button,
+.console-main a {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.skip-link {
+  display: inline-flex;
+  align-items: center;
+}
+
+.console-main a {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The tokens' :focus-visible outline, kept for the main landmark target. */
+#main:focus {
+  outline: none;
+}
+
+#main:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+}
+
+/* ---------- header ---------- */
+
+.console-header {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.console-header__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1.5rem;
+  padding-block: 1rem;
+}
+
+.console-mark {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--ac-type-card-title);
+  font-weight: 500;
+  letter-spacing: var(--ac-tracking-heading);
+}
+
+.console-reader {
+  margin: 0;
+  font-size: var(--ac-type-ui);
+  line-height: var(--ac-leading-ui);
+  color: var(--ink-soft);
+}
+
+/* ---------- tag view: text left, the tag (specimen) right ---------- */
+
+.console-main {
+  padding-block: clamp(2.5rem, 7vh, 5rem);
+}
+
+.tag-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: clamp(2rem, 6vw, 4rem);
+}
+
+.tag-view__text {
+  max-width: var(--ac-measure-prose);
+}
+
+.tag-view h1 {
+  margin-block: 0 1rem;
+}
+
+.console-card {
+  font-size: var(--ac-type-lede);
+  line-height: var(--ac-leading-lede);
+  margin-block: 0 0.75rem;
+}
+
+.console-error {
+  margin-block: 1.25rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ink);
+  border-radius: calc(var(--radius) / 3);
+  background: var(--surface);
+}
+
+.console-error p {
+  margin: 0;
+}
+
+.console-error p + p {
+  margin-top: 0.35rem;
+  color: var(--ink-soft);
+}
+
+.console-button {
+  margin-top: 1.25rem;
+  padding: 0.65rem 1.4rem;
+  font: inherit;
+  font-size: var(--ac-type-ui);
+  font-weight: 600;
+  color: var(--on-accent);
+  background: var(--accent-strong);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.console-button:hover {
+  background: var(--accent);
+}
+
+/* The tag outline: ISO/IEC 7810 ID-1 proportions (85.60 x 53.98 mm), its face
+   a 16 x 4 memory map. Trailer blocks (keys + access bits) are told apart by
+   shape — a solid, heavier rule — never by colour alone. */
+.tag-slot {
+  margin: 0;
+  aspect-ratio: 85.6 / 53.98;
+  width: 100%;
+  padding: 7% 6%;
+  border: 1.5px dashed var(--mesh-thread);
+  border-radius: calc(var(--radius) * 0.75);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+}
+
+.tag-slot--present {
+  border-style: solid;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-lift);
+}
+
+.tag-slot__map {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6% 3%;
+}
+
+.tag-slot__sector {
+  display: grid;
+  gap: 4px;
+}
+
+.tag-slot__block {
+  display: block;
+  height: clamp(0.45rem, 1.4vw, 0.8rem);
+  border-radius: 2px;
+  border: 1px dashed var(--line);
+}
+
+.tag-slot__block--trailer {
+  border: 1.5px solid var(--mesh-thread);
+}
+
+/* One motion only: the empty slot breathes while waiting for a tag. The
+   tokens' reduced-motion kill switch removes it; it is also gated here. */
+@media (prefers-reduced-motion: no-preference) {
+  .tag-slot:not(.tag-slot--present) {
+    animation: tag-slot-wait 4.8s var(--ease-gentle) infinite;
+  }
+}
+
+@keyframes tag-slot-wait {
+  0%,
+  100% {
+    border-color: var(--mesh-thread);
+  }
+  50% {
+    border-color: var(--accent);
+  }
+}
+
+@media (max-width: 44rem) {
+  .tag-view {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tag-slot {
+    order: -1;
+    max-width: 26rem;
+  }
+}
