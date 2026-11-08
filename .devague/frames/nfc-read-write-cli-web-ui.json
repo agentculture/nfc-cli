@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-08T14:18:56Z",
-  "updated": "2026-11-08T15:35:05Z",
+  "updated": "2026-11-08T17:37:32Z",
   "claims": [
     {
       "id": "c1",
@@ -1440,6 +1440,152 @@
       ],
       "origin": "llm",
       "status": "approved"
+    },
+    {
+      "id": "l2",
+      "code": "n-below-claim",
+      "what": "t2 (ATR detection): only 4 ATRs were checked against the ACR1552 manual tables; other families use TCKs computed inside the test itself, and SS 07 -> iso15693 follows the brief rather than a manual row",
+      "skipped_check": "check every manual ATR table row",
+      "refs": [
+        "plan t2",
+        "tests/test_atr.py::test_manual_recorded_atrs"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l3",
+      "code": "assumption-for-measurement",
+      "what": "t2 (ATR detection): the iso14443_4 / Type 4 family is asserted only with a synthetic ATR, never a real Type 4 tag",
+      "skipped_check": "a recorded real Type 4 ATR (verify live in t18 if such a tag is available)",
+      "refs": [
+        "plan t2"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l4",
+      "code": "provenance-missing",
+      "what": "t6 (packaging) returned no final report (literal 'placeholder'); its commit e88116f was verified by the main agent instead: diff reviewed against the 4 acceptance criteria, full gate run (168 passed), test_zero_deps + test_wheel_ships_ui run (wheel test skips: web/ absent until t15)",
+      "skipped_check": "agent self-report of step-4 outputs",
+      "refs": [
+        "plan t6"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l5",
+      "code": "grader-unverified",
+      "what": "t3 (NDEF): GPB bytes 0x40/0xC1, MAD CRC test vector 0x14, MAD info byte 0x01, keys A0A1A2A3A4A5/D3F7D3F7D3F7 and AID 03E1 are asserted against values recalled from memory of NXP AN1304/AN10787, not a fetched spec; access bits 7F0788/787788 were independently derived; sector-0 key B = FFFFFFFFFFFF is the agent's choice",
+      "skipped_check": "fetch NXP AN1304/AN10787 or confirm with an Android phone reading a formatted tag (t18)",
+      "refs": [
+        "plan t3",
+        "plan risk r4"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l6",
+      "code": "assumption-for-measurement",
+      "what": "t1 (transport): the real pyusb path (find_devices, kernel-driver detach, claim/release, dispose, split bulk reads) was never run by the task agent \u2014 fakes only; the test that nothing else imports usb is a text grep, not AST",
+      "skipped_check": "live read-only smoke test on the ACR1552 (main agent runs it post-merge; full coverage in t18)",
+      "refs": [
+        "plan t1"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l7",
+      "code": "assumption-for-measurement",
+      "what": "t7 (fake): FakeTransport status words for denied ops (63 00), Classic access-bit tables, and the NTAG/ISO15693/Type 4 ATRs are recalled or chosen, not captured from hardware",
+      "skipped_check": "compare fake SWs with real ACR1552 responses during t18",
+      "refs": [
+        "plan t7"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l8",
+      "code": "assumption-for-measurement",
+      "what": "t9 (families): ISO15693 pass-through flags byte, FeliCa response framing + service 0x0109, CTS 2-byte blocks, Topaz 8-byte addressing, Type 2 4-page reads are assumptions from an ambiguous manual, untested on hardware",
+      "skipped_check": "live reads of non-Classic families (none available: the user's other tags were not 13.56 MHz)",
+      "refs": [
+        "plan t9"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l9",
+      "code": "control-absent",
+      "what": "t9 (families): implementation written before tests, so no red phase \u2014 TDD rule in COMMON.md skipped",
+      "skipped_check": "write failing tests first",
+      "refs": [
+        "plan t9"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l10",
+      "code": "assumption-for-measurement",
+      "what": "t10 (reader): restore-verification failure path proven only with a fake that lies about set; live restore not exercised",
+      "skipped_check": "live polling-type change + restore on the ACR1552 (t18, only if the RF-off probe r3 is attempted)",
+      "refs": [
+        "plan t10"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l11",
+      "code": "control-absent",
+      "what": "t15: committed 83210b0 in the same chained command as scan-secrets, before reading its output; the finding (npm funding URLs in package-lock.json) was fixed in follow-up ee4c11b",
+      "skipped_check": "read gate output before committing",
+      "refs": [
+        "plan t15"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l12",
+      "code": "provenance-missing",
+      "what": "t15: npm 11 blocked esbuild's postinstall script; build worked without it but the script was neither reviewed nor approved",
+      "skipped_check": "review/approve esbuild install script",
+      "refs": [
+        "plan t15"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l13",
+      "code": "n-below-claim",
+      "what": "t15: axe ran on two shell states in light scheme only; dark scheme reviewed by eye from a screenshot",
+      "skipped_check": "axe pass under prefers-color-scheme: dark",
+      "refs": [
+        "plan t15"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l14",
+      "code": "grader-unverified",
+      "what": "Main agent: my d1 follow-up test test_classic_trailer_and_block0_guarded_with_zero_writes counted writes with a[:2]==FFD6 over FakeTransport.log, whose entries are (kind, bytes) tuples \u2014 the count was always 0, so the zero-write assertion was vacuous (caught by t11)",
+      "skipped_check": "make the assertion fail once before trusting it",
+      "refs": [
+        "tests/test_integration_fake_transport.py",
+        "deviation d1"
+      ],
+      "origin": "llm",
+      "status": "proposed"
     }
   ],
   "obligations": [

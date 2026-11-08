@@ -65,12 +65,17 @@ def test_classic_trailer_and_block0_guarded_with_zero_writes() -> None:
     t = load_scenario("x3")
     t.power_on()
     classic.authenticate(t, 0, "FFFFFFFFFFFF", "A")
-    before = len([a for a in t.log if a[:2] == b"\xff\xd6"])
+    def writes() -> int:
+        return sum(1 for kind, a in t.log if kind == "apdu" and a[:2] == b"\xff\xd6")
+
+    before = writes()
     for block in (0, 3):
         with pytest.raises(classic.ClassicError):
             classic.write_block(t, block, bytes(16))
-    after = len([a for a in t.log if a[:2] == b"\xff\xd6"])
-    assert after == before
+    assert writes() == before
+    # sanity: the counter is live — a permitted data-block write is counted
+    classic.write_block(t, 1, bytes(16))
+    assert writes() == before + 1
 
 
 def test_classic_format_template_accepted_by_fake_access_rules() -> None:

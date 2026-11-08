@@ -5,7 +5,7 @@
   "schema_version": 5,
   "status": "exported",
   "created": "2026-11-08T15:54:17Z",
-  "updated": "2026-11-08T16:30:24Z",
+  "updated": "2026-11-08T17:26:18Z",
   "targets": [
     {
       "id": "c1",
@@ -1000,8 +1000,8 @@
       "text": "Headless Chromium for the playwright MCP / e2e on this aarch64 board may need root-installed system libraries; CI (ubuntu-latest) is the authoritative e2e run, board-side screenshot is best-effort",
       "kind": "unknown_nonblocking",
       "task_id": "t18",
-      "resolved": false,
-      "resolution": ""
+      "resolved": true,
+      "resolution": "Resolved 2026-11-08: t15 installed Chrome Headless Shell to ~/.cache/ms-playwright without root and ran 5 Playwright+axe tests on the aarch64 board"
     },
     {
       "id": "r3",
