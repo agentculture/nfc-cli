@@ -134,3 +134,68 @@ def test_resume_refuses_to_silently_skip_pending_trailers(tmp_path, monkeypatch)
     original = ops.dumpfile.Dump.load(blank)
     for block, hexdata in original.blocks.items():
         assert t.card.blocks[int(block)].hex() == hexdata, block
+
+
+def test_dump_resume_bin_format(tmp_path):
+    """Review finding #2: a binary partial dump must be resumable (resume load hardcoded json).
+
+    Before the fix, dump(resume_from=<bin file>) loaded it as JSON and failed with
+    'cannot read dump'. The resume now loads the partial in the dump's own format.
+    """
+    from nfc_cli.nfc import dumpfile
+
+    t = load_scenario("x3")
+    t.power_on()
+    uid = t.card.uid.hex()
+    # a partial dump of this tag, saved as binary (sectors 0-1 only)
+    partial = dumpfile.Dump(t.card.atr.hex(), uid, "classic")
+    for b in range(8):
+        partial.blocks[b] = t.card.blocks[b].hex()
+    out = tmp_path / "x3.bin"
+    partial.save(out, fmt="bin", include_keys=True)
+
+    done = ops.dump(t, output=out, fmt="bin", resume_from=out)
+    assert done["complete"]
+    assert done["blocks_read"] == 64
+
+
+def test_recover_reauths_with_access_bit_keys_not_hardcoded_b(tmp_path, monkeypatch):
+    """Review finding #3: after a transient mute, recovery must re-authenticate with the
+    key type the block's access bits allow (``allowed``), not an unconditional key B.
+    A trailer or block whose access bits permit key A only would be bricked by forcing B.
+    """
+    t = load_scenario("blank-classic")
+    t.power_on()
+    monkeypatch.setattr(ops.time, "sleep", lambda s: None)
+    monkeypatch.setattr(ops.classic, "write_key_types", lambda trailer, block: ("A",))
+
+    acc = ops._ClassicAccess(t, "classic_1k")
+
+    auth_calls: list[tuple] = []
+    real_auth = acc.auth
+
+    def record_auth(sector, key_types=("A", "B")):
+        auth_calls.append(tuple(key_types))
+        return real_auth(sector, key_types)
+
+    monkeypatch.setattr(acc, "auth", record_auth)
+
+    # transient mute on the first write of block 1, then success
+    real_update = t.card._update
+    tripped = {"done": False}
+
+    def flaky(block, data):
+        if block == 1 and not tripped["done"]:
+            tripped["done"] = True
+            t.card.halted = True
+            from nfc_cli.nfc.fake import SW_MUTE
+
+            return SW_MUTE
+        return real_update(block, data)
+
+    t.card._update = flaky  # type: ignore[method-assign]
+    acc.write(1, bytes(range(16)))
+    assert t.card.blocks[1] == bytes(range(16))
+    # the post-mute re-auth used the access-bit key set ("A",), never a forced ("B",)
+    assert ("B",) not in auth_calls
+    assert ("A",) in auth_calls

@@ -396,7 +396,7 @@ class _ClassicAccess(_Access):
             if not self._recover():
                 raise
             self.authed = None
-            self.auth(sector, ("B",))
+            self.auth(sector, allowed)  # re-auth with a key the access bits allow for this block
             classic.write_block(self.t, block, data, allow_trailer=True)
         if classic.is_trailer(block):
             self.found.pop(sector, None)
@@ -596,8 +596,9 @@ def magic_check(t: Transport, **keyargs) -> dict:
             "block-0 rewriting is a MIFARE Classic magic-card feature",
         )
     acc = _access(t, card, **_key_args(keyargs))
-    kt, key = acc.found.get(0) or classic.find_key(t, 0, acc.extra)
-    writable = classic.probe_block0_writable(t, key)
+    acc.auth(0)  # honours --key/--key-type, then found keys, then the default dictionary
+    kt, key = acc.found[0]
+    writable = classic.probe_block0_writable(t, key, kt)
     return {
         "uid": card.uid_hex,
         "family": card.family,
@@ -709,7 +710,7 @@ def dump(
     acc = _access(t, card, keys, key, key_type)
     existing = None
     if resume_from:
-        existing = _load_dump(resume_from)
+        existing = _load_dump(resume_from, fmt)
         if existing.uid and card.uid_hex and existing.uid != card.uid_hex:
             raise NfcError(
                 f"partial dump is for tag {existing.uid}, but tag {card.uid_hex} is present",

@@ -194,7 +194,9 @@ def read_sector(t: Transport, sector: int, key: bytes | str, key_type: str = "A"
     return [read_block(t, first + i) for i in range(sector_size(sector))]
 
 
-def probe_block0_writable(t: Transport, key: bytes | str = DEFAULT_KEYS[0]) -> bool:
+def probe_block0_writable(
+    t: Transport, key: bytes | str = DEFAULT_KEYS[0], key_type: str = "A"
+) -> bool:
     """Non-destructively test whether block 0 (the UID block) accepts a write.
 
     Writes block 0's **own current bytes back to itself** after a normal sector-0
@@ -206,7 +208,7 @@ def probe_block0_writable(t: Transport, key: bytes | str = DEFAULT_KEYS[0]) -> b
     that is treated as "not writable", and the card is power-cycled so later calls
     work. Raises if the card never answers again.
     """
-    authenticate(t, 0, key, "A")
+    authenticate(t, 0, key, key_type)
     current = read_block(t, 0)
     uid = current[:4]
     try:

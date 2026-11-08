@@ -26,7 +26,7 @@ unless `--apply` is given. Identity lives in `culture.yaml` + `CLAUDE.md`.
 - `nfc-cli doctor` — check the agent-identity invariants.
 - `nfc-cli cli overview` — describe the CLI surface.
 - `nfc-cli reader list|info` — reader operations.
-- `nfc-cli tag info|uid|wait|read|write|dump|restore|apdu` — tag operations.
+- `nfc-cli tag info|uid|magic-check|wait|read|write|dump|restore|apdu` — tag operations.
 - `nfc-cli ndef read|write|erase|format` — NDEF operations.
 - `nfc-cli mcp` — MCP server on stdio.
 - `nfc-cli ui serve` — local web UI and /api.

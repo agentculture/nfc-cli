@@ -78,3 +78,35 @@ def test_probe_reraises_when_card_truly_gone():
     t.card._update = refuse_then_leave  # type: ignore[method-assign]
     with pytest.raises((CardRemoved, NoCard)):
         classic.probe_block0_writable(t)
+
+
+def test_magic_check_uses_user_supplied_key(monkeypatch):
+    # A magic card whose sector-0 key A is NOT in the default dictionary: magic-check
+    # must honour --key, and must fail without it (review finding #1).
+    from nfc_cli.nfc import fake as fakemod
+
+    custom = bytes.fromhex("A1B2C3D4E5F6")
+    blocks = fakemod.MifareClassic1K.blank_blocks(bytes.fromhex("DEADBEEF"))
+    # both sector-0 keys non-default, so the default dictionary cannot open it at all
+    blocks[3] = custom + fakemod.TRANSPORT_TRAILER_TAIL + custom
+    card = fakemod.MifareClassic1K(bytes.fromhex("DEADBEEF"), magic=True, blocks=blocks)
+    t = fakemod.FakeTransport(card)
+    monkeypatch.setattr(classic.time, "sleep", lambda s: None)
+    t.power_on()
+
+    res = ops.magic_check(t, key=custom)
+    assert res["block0_writable"] is True
+
+    t2 = fakemod.FakeTransport(
+        fakemod.MifareClassic1K(bytes.fromhex("DEADBEEF"), magic=True, blocks=blocks)
+    )
+    t2.power_on()
+    with pytest.raises(ops.AuthFailed):
+        ops.magic_check(t2)  # no key, custom key A not in the dictionary
+
+
+def test_probe_honours_key_b():
+    # probe with key_type B authenticates with B (review finding #1: key type was hardcoded A)
+    t = load_scenario("magic-classic")
+    t.power_on()
+    assert classic.probe_block0_writable(t, classic.DEFAULT_KEYS[0], "B") is True

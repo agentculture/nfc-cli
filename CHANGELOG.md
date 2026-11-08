@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1] - 2026-11-08
+
+### Fixed
+
+- `tag magic-check` now honours `--key`/`--key-type` and probes block 0 with whichever key opened sector 0, instead of only trying the default dictionary and a hardcoded key A (a tag with a non-default sector-0 key could not be probed). (code review)
+- `tag dump --resume` loads a binary partial dump in the format it was saved, so `--format bin` dumps are resumable. (code review)
+- After a transient write mute, the Classic write recovery re-authenticates with a key the block's access bits actually allow, instead of an unconditional key B (which would fail, or re-mute, a key-A-only block/trailer). (code review)
+- `nfc-cli explain`/overview root text lists the `tag magic-check` verb. (code review)
+
 ## [0.12.0] - 2026-11-08
 
 ### Added
