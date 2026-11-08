@@ -197,9 +197,16 @@ export default function Console() {
   const shared = { cardUid: uid, onPending: setPending, onError: setActionError };
   const notFound = base.route !== "/";
 
+  // Set the agent-state JSON as the script node's textContent (XSS-safe: no HTML parsing),
+  // rather than dangerouslySetInnerHTML.
+  const agentStateRef = useRef<HTMLScriptElement>(null);
+  useEffect(() => {
+    if (agentStateRef.current) agentStateRef.current.textContent = serializeAgentState(agentState);
+  }, [agentState]);
+
   return (
     <>
-      <script type="application/json" id="agent-state" dangerouslySetInnerHTML={{ __html: serializeAgentState(agentState) }} />
+      <script type="application/json" id="agent-state" ref={agentStateRef} />
       <a className="skip-link" href="#main">
         Skip to main content
       </a>

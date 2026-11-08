@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.4] - 2026-11-08
+
+### Fixed
+
+- The web console sets the `agent-state` JSON via the script node's `textContent` instead of `dangerouslySetInnerHTML`, which is XSS-safe at the source and clears the SonarCloud security finding. (code review)
+
 ## [0.12.3] - 2026-11-08
 
 ### Fixed
