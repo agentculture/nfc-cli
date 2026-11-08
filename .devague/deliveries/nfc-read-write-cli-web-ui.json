@@ -1,0 +1,25 @@
+{
+  "plan_slug": "nfc-read-write-cli-web-ui",
+  "schema_version": 2,
+  "created": "2026-11-08T17:22:33Z",
+  "updated": "2026-11-08T17:22:33Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "t8 and t9 met their 'against FakeTransport' acceptance criteria with their own in-test fakes (tests/_classic_fake.py, fakes inside tests/test_families.py) because FakeTransport (t7) was built in the same wave; follow-up: after t7 merges, add tests running classic.py and families.py against nfc_cli.nfc.fake.FakeTransport scenarios before t11 starts",
+      "task_ref": "t8",
+      "reason": "plan sequencing gap: t8/t9 should have depended on t7; caught by the main agent at wave-2 launch",
+      "affects": [
+        "t9",
+        "t11"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "needs-follow-up",
+      "seq": 1
+    }
+  ],
+  "evidence": [],
+  "deltas": [],
+  "supersessions": []
+}

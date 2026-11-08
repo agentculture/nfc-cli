@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-08T14:18:56Z",
-  "updated": "2026-11-08T17:37:52Z",
+  "updated": "2026-11-08T17:42:09Z",
   "claims": [
     {
       "id": "c1",
@@ -1605,6 +1605,18 @@
       "skipped_check": "a fake scenario where key A cannot write + live X3 format in t18",
       "refs": [
         "plan t11"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l17",
+      "code": "grader-unverified",
+      "what": "t14: test_errors_mapped accepts 400 or 200 for a bad Content-Length, and the audit test only checks that some state file mentions 'api' rather than asserting surface=api on the audit line \u2014 both assertions too lenient to catch regressions",
+      "skipped_check": "exact status + parsed audit-line surface assertion",
+      "refs": [
+        "plan t14",
+        "tests/test_web_server.py"
       ],
       "origin": "llm",
       "status": "proposed"
