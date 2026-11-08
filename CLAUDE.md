@@ -12,11 +12,13 @@ kit, and a build/deploy pipeline. **No NFC functionality exists yet** — no
 reader/tag code, no hardware dependency. Several strings still describe the
 repo as "a clonable template" (the parser `description` in
 `nfc_cli/cli/__init__.py`, `_ROOT` in `nfc_cli/explain/catalog.py`, the
-other harness prompt files); update them as real NFC features land.
+other harness prompt files); update them as real NFC features land, and
+update this section once NFC code exists.
 
-GitHub: `agentculture/nfc-cli` (no issues or PRs filed as of 2026-11-08).
+### Hardware context (snapshot from 2026-11-08 — re-verify before relying on it)
 
-### Hardware context (observed at init, 2026-11-08)
+Re-check with `lsusb`, `cat /sys/firmware/devicetree/base/compatible`, and
+`which pcscd`; the host and installed packages can change.
 
 - The dev host is an Arduino **VENTUNO Q** board (`arduino,monza`, Linux/aarch64).
   The CLI runs on the Linux side as an ordinary Python package; it is not an
@@ -82,8 +84,12 @@ in CI:
 `culture.yaml` declares `suffix: nfc-cli`, `backend: claude`, plus a `gate`
 section (setup/test argv lists used by external tooling). `whoami` reads it by
 walking up from the module file (not CWD), parsed without a YAML library.
-`doctor` checks two invariants: **prompt-file-present** and
-**backend-consistency** — `backend: claude` requires this `CLAUDE.md`. The
+`doctor` (`nfc_cli/cli/_commands/doctor.py`, `_diagnose()`) reports:
+`prompt_file_present` (`backend: claude` requires this `CLAUDE.md`),
+`backend_consistency` (fails when the declared backend is unknown),
+`harness_prompts` (info only — other harness files never substitute for the
+resident prompt), and `skills_present` (warning when `.claude/skills/` is
+missing or empty). The
 harness smoke probe also asks whether `CLAUDE.md` describes the project as
 nfc-cli, so keep that name prominent here.
 
@@ -97,7 +103,9 @@ nfc-cli, so keep that name prominent here.
 | Qwen Code | `QWEN.md` |
 
 There is intentionally **no `AGENTS.md`**. When repo conventions or purpose
-change, update all four so they don't drift. `.qwen/skills`, `.pi/skills`, and
+change, update all four so they don't drift. **Known drift (pending
+follow-up):** the other harnesses' prompt files still describe the repo as a generic
+template rather than an NFC tool. `.qwen/skills`, `.pi/skills`, and
 `.colleague/skills` are symlinks onto `.claude/skills`. `culture.yaml`'s
 `backend` selects only the mesh resident, never which harness can run
 interactively (see `docs/harness-selection.md`, `docs/automation-contract.md`).
