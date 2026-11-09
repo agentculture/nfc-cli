@@ -14,7 +14,8 @@ def load():
 
 def test_fixture_loaded_all_blocks():
     d = load()
-    assert len(d.blocks) == 64 and len(d.keys_used) == 16
+    assert len(d.blocks) == 64
+    assert len(d.keys_used) == 16
     assert d.uid == "cb30c560"
 
 

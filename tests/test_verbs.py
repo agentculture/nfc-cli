@@ -75,7 +75,8 @@ def test_params_schemas_are_cli_friendly_and_valid():
         spec = mcp_tool_spec(v)
         assert spec["name"] == f"{v.noun}_{v.verb}"
         for p in v.params:
-            assert p.name.isidentifier() and p.name == p.name.lower()
+            assert p.name.isidentifier()
+            assert p.name == p.name.lower()
         assert ("apply" in spec["inputSchema"]["properties"]) is v.mutating
     trailer_verbs = {v.path for v in verbs.build_verbs() if "trailer_flag" in v.extra}
     assert trailer_verbs == {
@@ -110,7 +111,8 @@ def test_reader_info_reports_firmware_and_tolerates_missing_answers():
     )
     out = call("reader", "info", ctx_for(t))
     assert out["firmware"] == "ACR1552 R FW 1.06.02"
-    assert out["polling"] is None and out["slot"]["present"] is True
+    assert out["polling"] is None
+    assert out["slot"]["present"] is True
     assert out["notes"]
 
 
@@ -130,9 +132,11 @@ def test_write_apply_and_restore_and_resume_through_verbs(tmp_path):
     t = load_scenario("x3")
     orig = call("tag", "dump", ctx_for(t), output=str(tmp_path / "o.json"))
     out = call("tag", "write", ctx_for(t, apply=True), block=4, data="22" * 16)
-    assert out["verified"] == 1 and t.card.blocks[4] == b"\x22" * 16
+    assert out["verified"] == 1
+    assert t.card.blocks[4] == b"\x22" * 16
     back = call("tag", "restore", ctx_for(t, apply=True), file=orig["path"])
-    assert back["verified"] == 1 and t.card.blocks[4] == bytes(16)
+    assert back["verified"] == 1
+    assert t.card.blocks[4] == bytes(16)
     # resume of a finished journal is a no-op
     again = call("tag", "restore", ctx_for(t, apply=True), file=back["journal"], resume=True)
     assert again["summary"]["write"] == 0
@@ -154,8 +158,9 @@ def test_trailer_gate_over_mcp_and_api_sends_no_apdu():
         t = load_scenario("blank-classic")
         verb = REGISTRY.get("ndef", "format")
         params, apply = validate_arguments(verb, {"apply": True})
+        ctx = ctx_for(t, apply=apply)
         with pytest.raises(verbs.TrailerFlagRequired):
-            verbs.invoke(verb, params, ctx_for(t, apply=apply), surface)
+            verbs.invoke(verb, params, ctx, surface)
         assert t.log == []
 
 
@@ -164,9 +169,11 @@ def test_trailer_gate_permitted_call_appends_audit_line():
     verb = REGISTRY.get("ndef", "format")
     params, apply = validate_arguments(verb, {"apply": True, "include_trailers": True})
     out = verbs.invoke(verb, params, ctx_for(t, apply=apply), "mcp")
-    assert out["applied"] and writes(t) > 0
+    assert out["applied"]
+    assert writes(t) > 0
     line = json.loads(ops.audit_log_path().read_text().splitlines()[-1])
-    assert line["surface"] == "mcp" and line["uid"] == "01020304"
+    assert line["surface"] == "mcp"
+    assert line["uid"] == "01020304"
     assert line["blocks"] == [s * 4 + 3 for s in range(16)]
 
 
@@ -194,11 +201,14 @@ def test_cli_surface_does_not_need_the_flag_for_format():
 )
 def test_handlers_raise_only_nfc_errors(noun, verb, params):
     t = load_scenario("ntag215" if verb == "format" else "x3")
+    ctx = ctx_for(t, apply=True)
     with pytest.raises(NfcError):
-        call(noun, verb, ctx_for(t, apply=True), **params)
+        call(noun, verb, ctx, **params)
     assert writes(t) == 0
 
 
 def test_no_card_is_an_nfc_error():
+    tag = load_scenario("empty")
+    ctx = ctx_for(tag)
     with pytest.raises(NfcError):
-        call("tag", "info", ctx_for(load_scenario("empty")))
+        call("tag", "info", ctx)

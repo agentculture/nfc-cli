@@ -235,7 +235,8 @@ def test_write_refuses_swapped_tag(tmp_path):
 
     # the correct UID proceeds
     res = ops.write(t, 4, bytes(range(16)), apply=True, expect_uid=present_uid)
-    assert res["applied"] and res["summary"]["write"] == 1
+    assert res["applied"]
+    assert res["summary"]["write"] == 1
 
 
 def test_atomic_save_keeps_prior_copy_on_failure(tmp_path, monkeypatch):

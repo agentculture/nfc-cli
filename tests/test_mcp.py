@@ -34,7 +34,8 @@ def test_tag_info_via_tools():
 def test_unknown_tool_is_user_error():
     with pytest.raises(tools.ToolError) as e:
         tools.call_tool("nope_nope", {})
-    assert e.value.kind == "user" and e.value.remediation
+    assert e.value.kind == "user"
+    assert e.value.remediation
 
 
 def test_string_boolean_refused_without_apdu():
@@ -59,7 +60,8 @@ def test_trailer_gate_zero_apdus_and_no_audit(tmp_path):
     fake = load_scenario("x3")
     with pytest.raises(tools.ToolError) as e:
         tools.call_tool("ndef_format", {"apply": True}, lambda: fake)
-    assert e.value.kind == "user" and "include_trailers" in e.value.message
+    assert e.value.kind == "user"
+    assert "include_trailers" in e.value.message
     assert fake.log == []
     assert not (tmp_path / "state").exists() or not list((tmp_path / "state").rglob("*audit*"))
 
@@ -67,7 +69,10 @@ def test_trailer_gate_zero_apdus_and_no_audit(tmp_path):
 def test_trailer_write_with_flag_appends_audit():
     res, _ = _call("ndef_format", {"apply": True, "include_trailers": True})
     line = json.loads(open(res["audit_log"]).read().splitlines()[-1])
-    assert line["surface"] == "mcp" and line["blocks"] and "ts" in line and "uid" in line
+    assert line["surface"] == "mcp"
+    assert line["blocks"]
+    assert "ts" in line
+    assert "uid" in line
 
 
 def test_keys_redacted_unless_include_keys():
@@ -85,7 +90,8 @@ def test_env_error_mapped(monkeypatch):
 
     with pytest.raises(tools.ToolError) as e:
         tools.call_tool("tag_info", {}, boom)
-    assert e.value.kind == "env" and e.value.remediation
+    assert e.value.kind == "env"
+    assert e.value.remediation
 
 
 def test_env_fake_shared_instance(monkeypatch):
@@ -128,6 +134,9 @@ def test_inprocess_server_lists_and_calls_tag_info():
             return names, ok, bad
 
     names, ok, bad = anyio.run(run)
-    assert "tag_info" in names and len(names) == 15
-    assert not ok.isError and json.loads(ok.content[0].text)["uid"]
-    assert bad.isError and "include_trailers" in bad.content[0].text
+    assert "tag_info" in names
+    assert len(names) == 15
+    assert not ok.isError
+    assert json.loads(ok.content[0].text)["uid"]
+    assert bad.isError
+    assert "include_trailers" in bad.content[0].text

@@ -61,7 +61,9 @@ def test_secret_file_is_0600_under_xdg(tmp_path, monkeypatch):
 def test_state(srv):
     st, raw = req(srv, "GET", "/api/state", auth=False)
     d = json.loads(raw)
-    assert st == 200 and d["card"]["present"] is True and d["card"]["uid"] == "cb30c560"
+    assert st == 200
+    assert d["card"]["present"] is True
+    assert d["card"]["uid"] == "cb30c560"
     assert d["reader"]["connected"] is True
 
 
@@ -98,21 +100,27 @@ def test_foreign_origin_and_host_refused(srv):
 def test_post_verb_ok_and_dry_run(srv):
     st, raw = req(srv, "POST", "/api/tag/uid", {})
     d = json.loads(raw)
-    assert st == 200 and d["ok"] and d["result"]["uid"] == "cb30c560"
+    assert st == 200
+    assert d["ok"]
+    assert d["result"]["uid"] == "cb30c560"
     st, raw = req(srv, "POST", "/api/tag/write", {"block": 4, "data": "00" * 16})
-    assert st == 200 and json.loads(raw)["ok"]
+    assert st == 200
+    assert json.loads(raw)["ok"]
 
 
 def test_errors_mapped(srv):
     st, raw = req(srv, "POST", "/api/tag/uid", {"bogus": 1})
     e = json.loads(raw)
-    assert st == 400 and e["error"]["kind"] == "user" and e["error"]["remediation"]
+    assert st == 400
+    assert e["error"]["kind"] == "user"
+    assert e["error"]["remediation"]
     assert req(srv, "POST", "/api/tag/nope", {})[0] == 404
     assert req(srv, "POST", "/api/tag/uid", None, headers={"Content-Length": "x"})[0] in (400, 200)
     srv.factory()._busy = True
     try:
         st, raw = req(srv, "POST", "/api/tag/uid", {})
-        assert st == 409 and json.loads(raw)["error"]["kind"] == "env"
+        assert st == 409
+        assert json.loads(raw)["error"]["kind"] == "env"
     finally:
         srv.factory()._busy = False
 
@@ -120,7 +128,8 @@ def test_errors_mapped(srv):
 def test_trailer_gate_over_api(srv):
     before = len(apdus(srv))
     st, raw = req(srv, "POST", "/api/ndef/format", {"apply": True})
-    assert st == 400 and "include_trailers" in json.loads(raw)["error"]["message"]
+    assert st == 400
+    assert "include_trailers" in json.loads(raw)["error"]["message"]
     assert len(apdus(srv)) == before
 
 
@@ -136,11 +145,13 @@ def test_sse_card_event_and_releases_claim(srv):
     c = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
     c.request("GET", "/api/events", headers={"Host": f"127.0.0.1:{port}"})
     r = c.getresponse()
-    assert r.status == 200 and r.getheader("Content-Type") == "text/event-stream"
+    assert r.status == 200
+    assert r.getheader("Content-Type") == "text/event-stream"
     line = b""
     while b"data:" not in line:
         line += r.fp.readline()
-    assert b"event: card" in line and b"cb30c560" in line
+    assert b"event: card" in line
+    assert b"cb30c560" in line
     # claim released between polls: a verb call still succeeds while the stream is open
     assert req(srv, "POST", "/api/tag/uid", {})[0] == 200
     c.close()
@@ -149,7 +160,8 @@ def test_sse_card_event_and_releases_claim(srv):
 def test_static_fallback_and_meta_injection(srv, tmp_path):
     srv.dist = None
     st, raw = req(srv, "GET", "/", auth=False)
-    assert st == 200 and b"not built" in raw
+    assert st == 200
+    assert b"not built" in raw
     d = tmp_path / "dist"
     d.mkdir()
     (d / "index.html").write_text("<html><head></head><body>hi</body></html>")

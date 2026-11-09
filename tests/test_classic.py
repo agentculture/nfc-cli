@@ -16,18 +16,25 @@ def test_layout_1k():
     assert [classic.sector_of(b) for b in (0, 3, 4, 63)] == [0, 0, 1, 15]
     assert classic.first_block(15) == 60
     assert classic.trailer_block(0) == 3
-    assert classic.is_trailer(63) and not classic.is_trailer(62)
+    assert classic.is_trailer(63)
+    assert not classic.is_trailer(62)
 
 
 def test_layout_4k():
-    assert classic.sector_of(127) == 31 and classic.sector_of(128) == 32
-    assert classic.sector_of(143) == 32 and classic.sector_of(144) == 33
+    assert classic.sector_of(127) == 31
+    assert classic.sector_of(128) == 32
+    assert classic.sector_of(143) == 32
+    assert classic.sector_of(144) == 33
     assert classic.sector_of(255) == 39
-    assert classic.first_block(31) == 124 and classic.first_block(32) == 128
+    assert classic.first_block(31) == 124
+    assert classic.first_block(32) == 128
     assert classic.first_block(39) == 240
-    assert classic.sector_size(32) == 16 and classic.sector_size(31) == 4
-    assert classic.trailer_block(32) == 143 and classic.trailer_block(39) == 255
-    assert classic.is_trailer(143) and not classic.is_trailer(142)
+    assert classic.sector_size(32) == 16
+    assert classic.sector_size(31) == 4
+    assert classic.trailer_block(32) == 143
+    assert classic.trailer_block(39) == 255
+    assert classic.is_trailer(143)
+    assert not classic.is_trailer(142)
     assert [classic.sector_count(n) for n in (64, 256)] == [16, 40]
     for s in range(40):
         assert classic.sector_of(classic.first_block(s)) == s
@@ -61,7 +68,8 @@ def test_failed_auth_power_cycles_and_raises():
     card = FakeClassic()
     with pytest.raises(AuthFailed):
         classic.authenticate(card, 0, KEY_X, "A")
-    assert card.cycles == 1 and not card.needs_cycle
+    assert card.cycles == 1
+    assert not card.needs_cycle
     classic.authenticate(card, 0, "FFFFFFFFFFFF", "A")  # works because of the cycle
 
 
@@ -89,10 +97,11 @@ def test_read_error_status():
 def test_write_refuses_block0_and_trailer():
     card = FakeClassic()
     classic.authenticate(card, 0, "FFFFFFFFFFFF")
+    payload = bytes(16)
     with pytest.raises(classic.ClassicError):
-        classic.write_block(card, 0, bytes(16))
+        classic.write_block(card, 0, payload)
     with pytest.raises(classic.ClassicError):
-        classic.write_block(card, 3, bytes(16))
+        classic.write_block(card, 3, payload)
     assert card.writes() == []
 
 
@@ -120,8 +129,9 @@ def test_write_block0_allowed_flag():
 
 
 def test_write_bad_length():
+    card = FakeClassic()
     with pytest.raises(classic.ClassicError):
-        classic.write_block(FakeClassic(), 4, b"x")
+        classic.write_block(card, 4, b"x")
 
 
 def test_find_key_default_order_and_cycles():
@@ -153,8 +163,9 @@ def test_load_keys_file(tmp_path):
     p.write_text("# c\n\n112233445566  # inline\nAABBCCDDEEFF\n")
     assert classic.load_keys_file(str(p)) == [KEY_X, bytes.fromhex("AABBCCDDEEFF")]
     p.write_text("xyz\n")
+    key_path = str(p)
     with pytest.raises(classic.ClassicError):
-        classic.load_keys_file(str(p))
+        classic.load_keys_file(key_path)
 
 
 def test_bad_key_and_type():

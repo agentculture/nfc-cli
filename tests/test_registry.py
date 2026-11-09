@@ -42,8 +42,9 @@ def test_register_and_tool_name():
     assert reg.get("tag", "write") is v
     assert v.tool_name == "tag_write"
     assert reg.nouns() == ["tag"]
+    v2 = _verb()
     with pytest.raises(DuplicateVerb):
-        reg.add(_verb())
+        reg.add(v2)
 
 
 def test_params_schema_apply_only_when_mutating():
@@ -55,7 +56,8 @@ def test_params_schema_apply_only_when_mutating():
         "description": rw["properties"]["apply"]["description"],
     }
     for s in (ro, rw):
-        assert s["type"] == "object" and s["required"] == ["block"]
+        assert s["type"] == "object"
+        assert s["required"] == ["block"]
         assert s["additionalProperties"] is False
 
 
@@ -70,7 +72,9 @@ def test_context_defaults_and_handler_result():
         True,
     )
     d = Context()
-    assert d.apply is False and d.include_keys is False and d.trace is None
+    assert d.apply is False
+    assert d.include_keys is False
+    assert d.trace is None
     assert _verb().handler(ctx, block=1) == {"apply": True, "block": 1}
 
 

@@ -118,9 +118,11 @@ def test_nothing_outside_transport_imports_usb_or_pcsc():
     pkg = Path(transport.__file__).parent.parent
     for path in pkg.rglob("*.py"):
         text = path.read_text()
-        assert "smartcard" not in text and "pyscard" not in text, path
+        assert "smartcard" not in text, path
+        assert "pyscard" not in text, path
         if path.name != "transport.py":
-            assert "import usb" not in text and "from usb" not in text, path
+            assert "import usb" not in text, path
+            assert "from usb" not in text, path
 
 
 def test_transport_protocol_implemented(t):
@@ -174,7 +176,8 @@ def test_escape_framing(t, dev):
     dev.respond(0x83, b"ACR1552 R FW 1.06.02")
     assert t.escape(bytes.fromhex("E000001800")) == b"ACR1552 R FW 1.06.02"
     raw = dev.writes[0][1]
-    assert header(raw)[0] == 0x6B and header(raw)[1] == 5
+    assert header(raw)[0] == 0x6B
+    assert header(raw)[1] == 5
     assert raw[10:] == bytes.fromhex("E000001800")
 
 
@@ -185,27 +188,32 @@ def test_sequence_numbers_increment_and_wrap(t, dev):
         t.present()
     seqs = [w[1][6] for w in dev.writes]
     assert seqs[:3] == [0, 1, 2]
-    assert seqs[255] == 255 and seqs[256] == 0 and seqs[257] == 1
+    assert seqs[255] == 255
+    assert seqs[256] == 0
+    assert seqs[257] == 1
 
 
 def test_time_extension_retries(t, dev):
     dev.respond(0x80, bytes.fromhex("9000"), extensions=3)
     data, sw = t.transmit(bytes.fromhex("FFB0000410"))
-    assert sw == b"\x90\x00" and data == b""
+    assert sw == b"\x90\x00"
+    assert data == b""
     assert dev.pending == []
 
 
 def test_stale_sequence_responses_discarded(t, dev):
     dev.respond(0x80, bytes.fromhex("01029000"), stale=2)
     data, sw = t.transmit(bytes.fromhex("FFB0000010"))
-    assert data == b"\x01\x02" and sw == b"\x90\x00"
+    assert data == b"\x01\x02"
+    assert sw == b"\x90\x00"
 
 
 def test_time_extension_retry_limit(dev, lockdir):
     tr = UsbCcidTransport(device=dev, max_time_extensions=5)
     dev.respond(0x80, bytes.fromhex("9000"), extensions=10)
+    apdu = bytes.fromhex("FFB0000410")
     with pytest.raises(errors.NfcError):
-        tr.transmit(bytes.fromhex("FFB0000410"))
+        tr.transmit(apdu)
 
 
 def test_split_response_reassembled(t, dev):
@@ -217,26 +225,30 @@ def test_split_response_reassembled(t, dev):
 
     dev.script.append(handler)
     data, sw = t.transmit(bytes.fromhex("FFB0000046"))
-    assert data == bytes(range(70)) and sw == b"\x90\x00"
+    assert data == bytes(range(70))
+    assert sw == b"\x90\x00"
 
 
 def test_transmit_card_removed(t, dev):
     dev.respond(0x80, status=0x42, error=0xFE)
+    apdu = bytes.fromhex("FFCA000000")
     with pytest.raises(errors.CardRemoved):
-        t.transmit(bytes.fromhex("FFCA000000"))
+        t.transmit(apdu)
 
 
 def test_ccid_failure_generic(t, dev):
     dev.respond(0x80, status=0x40, error=0x05)
+    apdu = bytes.fromhex("FFCA000000")
     with pytest.raises(errors.NfcError) as ei:
-        t.transmit(bytes.fromhex("FFCA000000"))
+        t.transmit(apdu)
     assert ei.value.remediation
 
 
 def test_short_rapdu_raises(t, dev):
     dev.respond(0x80, b"\x90")
+    apdu = bytes.fromhex("FFCA000000")
     with pytest.raises(errors.NfcError):
-        t.transmit(bytes.fromhex("FFCA000000"))
+        t.transmit(apdu)
 
 
 # --------------------------------------------------------------------------- claim + lock
@@ -262,7 +274,8 @@ def test_nested_claim_is_reentrant(t, dev):
 def test_unclaimed_call_claims_for_that_operation(t, dev):
     dev.respond(0x81)
     t.present()
-    assert dev.claims == 1 and not dev.claimed
+    assert dev.claims == 1
+    assert not dev.claimed
 
 
 def test_lock_file_records_pid_and_argv(t, dev, lockdir):
@@ -345,12 +358,15 @@ def test_select_device_default_index_and_busaddr():
 def test_select_device_not_found():
     with pytest.raises(errors.ReaderNotFound):
         select_device([], None)
+    dev_index = FakeDevice()
     with pytest.raises(errors.ReaderNotFound):
-        select_device([FakeDevice()], "5")
+        select_device([dev_index], "5")
+    dev_busaddr = FakeDevice()
     with pytest.raises(errors.ReaderNotFound):
-        select_device([FakeDevice()], "9:9")
+        select_device([dev_busaddr], "9:9")
+    dev_bogus = FakeDevice()
     with pytest.raises(errors.ReaderNotFound):
-        select_device([FakeDevice()], "bogus")
+        select_device([dev_bogus], "bogus")
 
 
 def test_missing_pyusb_raises_usb_unavailable(monkeypatch, lockdir):
@@ -375,10 +391,14 @@ def test_trace_records_every_exchange(dev, lockdir):
     out = buf.getvalue()
     lines = out.strip().splitlines()
     assert len(lines) == 4
-    assert lines[0].startswith(">") and "FFCA000000" in lines[0]
-    assert lines[1].startswith("<") and "CB30C560" in lines[1]
-    assert "SW=9000" in lines[1] and "ms" in lines[1]
-    assert "E000001800" in lines[2] and "0102" in lines[3]
+    assert lines[0].startswith(">")
+    assert "FFCA000000" in lines[0]
+    assert lines[1].startswith("<")
+    assert "CB30C560" in lines[1]
+    assert "SW=9000" in lines[1]
+    assert "ms" in lines[1]
+    assert "E000001800" in lines[2]
+    assert "0102" in lines[3]
 
 
 def test_trace_masks_load_key(dev, lockdir):
@@ -396,7 +416,8 @@ def test_no_trace_by_default(t, dev, capsys):
     dev.respond(0x81)
     t.present()
     cap = capsys.readouterr()
-    assert cap.out == "" and cap.err == ""
+    assert cap.out == ""
+    assert cap.err == ""
 
 
 # --------------------------------------------------------------------------- errors
@@ -417,9 +438,11 @@ def test_no_trace_by_default(t, dev, capsys):
 def test_error_classes_have_remediation(cls):
     e = cls()
     assert isinstance(e, errors.NfcError)
-    assert e.remediation and str(e)
+    assert e.remediation
+    assert str(e)
     e2 = cls("custom", remediation="do x")
-    assert str(e2) == "custom" and e2.remediation == "do x"
+    assert str(e2) == "custom"
+    assert e2.remediation == "do x"
 
 
 def test_reader_permission_hint_names_udev_docs():

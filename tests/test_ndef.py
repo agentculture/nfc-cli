@@ -35,7 +35,8 @@ def test_text_roundtrip():
 
 def test_uri_prefix_compression():
     rec = ndef.uri_record("https://www.example.com/x")
-    assert rec.payload[0] == 0x02 and rec.payload[1:] == b"example.com/x"
+    assert rec.payload[0] == 0x02
+    assert rec.payload[1:] == b"example.com/x"
     assert ndef.uri_record("https://a.b").payload[0] == 0x04
     assert ndef.uri_record("tel:+123").payload[0] == 0x05
     assert ndef.uri_record("custom:thing").payload[0] == 0x00
@@ -67,9 +68,13 @@ def test_multi_record_flags_and_ids():
         pos += (
             3 + len(r.type) + len(r.id) + len(r.payload) - (0 if r.id else 0) + (1 if r.id else 0)
         )
-    assert flags[0] & 0x80 and not flags[0] & 0x40
-    assert not flags[1] & 0x80 and not flags[1] & 0x40 and flags[1] & 0x08
-    assert flags[2] & 0x40 and not flags[2] & 0x80
+    assert flags[0] & 0x80
+    assert not flags[0] & 0x40
+    assert not flags[1] & 0x80
+    assert not flags[1] & 0x40
+    assert flags[1] & 0x08
+    assert flags[2] & 0x40
+    assert not flags[2] & 0x80
     assert ndef.decode_message(data) == recs
 
 
@@ -98,7 +103,8 @@ def test_tlv_wrap_unwrap():
     assert ndef.tlv_unwrap(w + b"\x00\x00") == msg
     long = b"z" * 300
     w = ndef.tlv_wrap(long)
-    assert w[:4] == b"\x03\xff\x01\x2c" and w[-1] == 0xFE
+    assert w[:4] == b"\x03\xff\x01\x2c"
+    assert w[-1] == 0xFE
     assert ndef.tlv_unwrap(w) == long
     assert ndef.tlv_wrap(b"") == b"\x03\x00\xfe"
     assert ndef.tlv_unwrap(b"\x00\x01\x03\xaa\xbb\xbb\x03\x01\x41\xfe") == b"A"
@@ -143,7 +149,8 @@ def test_format_template():
 
 def test_template_fewer_sectors():
     t = ndef.classic_format_template(sectors=4)
-    assert 4 * 4 + 3 not in t and 4 * 3 + 3 in t
+    assert 4 * 4 + 3 not in t
+    assert 4 * 3 + 3 in t
     assert t[1] == bytes([t[1][0], 0x01]) + b"\x03\xe1" * 3 + bytes(8)
     assert t[2] == bytes(16)
     assert ndef.mad_crc(t[1][1:] + t[2]) == t[1][0]
@@ -153,7 +160,9 @@ def test_template_fewer_sectors():
 
 def test_classic_data_blocks():
     blocks = ndef.classic_data_blocks()
-    assert blocks[:3] == [4, 5, 6] and blocks[3] == 8 and len(blocks) == 45
+    assert blocks[:3] == [4, 5, 6]
+    assert blocks[3] == 8
+    assert len(blocks) == 45
 
 
 def test_validate_access_bits_rejects_flipped_bit():

@@ -14,7 +14,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location(
     "scan_secrets_lockfiles", REPO_ROOT / "scripts" / "scan-secrets.py"
 )
-assert _spec is not None and _spec.loader is not None
+assert _spec is not None
+assert _spec.loader is not None
 scan_secrets = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = scan_secrets
 _spec.loader.exec_module(scan_secrets)

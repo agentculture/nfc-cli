@@ -19,7 +19,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def _load() -> ModuleType:
     spec = importlib.util.spec_from_file_location("hatch_build_ut", REPO_ROOT / "hatch_build.py")
-    assert spec and spec.loader  # nosec B101
+    assert spec
+    assert spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -112,8 +113,9 @@ def test_hook_missing_npm_names_failure(tmp_path: Path, monkeypatch: pytest.Monk
     _patch(module, monkeypatch, web)
     monkeypatch.delenv(module.SKIP_ENV, raising=False)
     monkeypatch.setattr(module.shutil, "which", lambda _n: None)
+    hook = _hook(module)
     with pytest.raises(RuntimeError, match="npm is not on PATH"):
-        _hook(module).initialize("0", {})
+        hook.initialize("0", {})
 
 
 def test_run_npm_build_names_timeout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

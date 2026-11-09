@@ -61,8 +61,10 @@ def guard_snapshot_first(t: FakeTransport) -> list[bool]:
 def test_info_classic_and_others():
     t = load_scenario("x3")
     out = ops.info(t)
-    assert out["family"] == "classic_1k" and out["uid"] == "cb30c560"
-    assert out["sectors"] == 16 and out["blocks"] == 64
+    assert out["family"] == "classic_1k"
+    assert out["uid"] == "cb30c560"
+    assert out["sectors"] == 16
+    assert out["blocks"] == 64
     assert ops.info(load_scenario("ntag215"))["capability"]["size"] == 496
     assert ops.info(load_scenario("type4"))["family"] == "iso14443_4"
     assert ops.info(load_scenario("iso15693"))["block_size"] == 4
@@ -70,8 +72,9 @@ def test_info_classic_and_others():
 
 def test_uid_and_info_without_card():
     assert ops.uid(load_scenario("x3"))["uid"] == "cb30c560"
+    tag = load_scenario("empty")
     with pytest.raises(NoCard):
-        ops.info(load_scenario("empty"))
+        ops.info(tag)
 
 
 def test_read_block_and_whole_tag_masks_keys():
@@ -79,10 +82,12 @@ def test_read_block_and_whole_tag_masks_keys():
     one = ops.read(t, 0, 1)
     assert one["blocks"]["0"] == X3_BLOCK0.hex()
     trailer = ops.read(t, 3, 1)["blocks"]["3"]
-    assert trailer.startswith("**") and "ffffffffffff" not in trailer
+    assert trailer.startswith("**")
+    assert "ffffffffffff" not in trailer
     assert ops.read(t, 3, 1, include_keys=True)["blocks"]["3"].startswith("ffffffffffff")
     whole = ops.read(t)
-    assert len(whole["blocks"]) == 64 and whole["unreadable_sectors"] == []
+    assert len(whole["blocks"]) == 64
+    assert whole["unreadable_sectors"] == []
 
 
 def test_read_ntag_pages():
@@ -100,16 +105,16 @@ def test_wait_returns_when_card_arrives_and_times_out():
             t.insert_card(MifareClassic1K(bytes.fromhex("01020304")))
 
     out = ops.wait_for_card(t, 5, sleep=sleep, clock=lambda: clock[0])
-    assert out["present"] is True and out["waited"] >= 1.0
+    assert out["present"] is True
+    assert out["waited"] >= 1.0
 
     t2, clock2 = load_scenario("empty"), [0.0]
+
+    def advance2(s):
+        clock2[0] += s
+
     with pytest.raises(NoCard):
-        ops.wait_for_card(
-            t2,
-            2,
-            sleep=lambda s: clock2.__setitem__(0, clock2[0] + s),
-            clock=lambda: clock2[0],
-        )
+        ops.wait_for_card(t2, 2, sleep=advance2, clock=lambda: clock2[0])
     assert clock2[0] == pytest.approx(2.0)
 
 
@@ -119,7 +124,8 @@ def test_wait_returns_when_card_arrives_and_times_out():
 def test_dump_writes_0600_file_with_keys_masked_in_result(tmp_path):
     t = load_scenario("x3")
     out = ops.dump(t, output=tmp_path / "x3.json")
-    assert out["complete"] and out["blocks_read"] == 64
+    assert out["complete"]
+    assert out["blocks_read"] == 64
     assert mode(out["path"]) == 0o600
     saved = dumpfile.Dump.load(out["path"])
     assert saved.blocks[3].startswith("ffffffffffff")  # file keeps keys (0600)
@@ -131,7 +137,8 @@ def test_dump_resumes_per_sector_after_card_removal(tmp_path):
     t = load_scenario("x3")
     t.card_removed_after(40)  # drop out a few sectors in
     out = ops.dump(t, output=tmp_path / "d.json", sleep=lambda s: t.clear_faults())
-    assert out["complete"] and out["blocks_read"] == 64
+    assert out["complete"]
+    assert out["blocks_read"] == 64
     ref = ops.dump(load_scenario("x3"), output=tmp_path / "ref.json")
     assert dumpfile.Dump.load(out["path"]).blocks == dumpfile.Dump.load(ref["path"]).blocks
 
@@ -147,14 +154,17 @@ def test_dump_resume_from_partial_file(tmp_path):
     t.clear_faults()
     before = len(t.log)
     out = ops.dump(t, resume_from=path)
-    assert out["complete"] and out["blocks_read"] == 64 and out["path"] == str(path)
+    assert out["complete"]
+    assert out["blocks_read"] == 64
+    assert out["path"] == str(path)
     reads = [a for k, a in t.log[before:] if a[1] == 0xB0]
     assert len(reads) == 64 - len(partial.blocks)
 
 
 def test_dump_ntag_and_iso15693(tmp_path):
     n = ops.dump(load_scenario("ntag215"), output=tmp_path / "n.json")
-    assert n["dump"]["family"] == "ultralight" and n["blocks_read"] == 4 + 496 // 4
+    assert n["dump"]["family"] == "ultralight"
+    assert n["blocks_read"] == 4 + 496 // 4
     i = ops.dump(load_scenario("iso15693"), output=tmp_path / "i.json")
     assert i["blocks_read"] == 28
 
@@ -165,7 +175,9 @@ def test_dump_ntag_and_iso15693(tmp_path):
 def test_write_dry_run_sends_no_write_apdu_and_diffs():
     t = load_scenario("x3")
     out = ops.write(t, 4, "00112233445566778899aabbccddeeff")
-    assert writes(t) == [] and out["applied"] is False and out["snapshot"] is None
+    assert writes(t) == []
+    assert out["applied"] is False
+    assert out["snapshot"] is None
     assert out["diff"] == [
         {"block": 4, "old": "00" * 16, "new": "00112233445566778899aabbccddeeff", "action": "write"}
     ]
@@ -178,11 +190,14 @@ def test_write_apply_snapshots_first_then_verifies_and_journals():
     data = bytes(range(32))
     out = ops.write(t, 4, data.hex(), apply=True)
     assert seen == [True, True]
-    assert out["applied"] and out["verified"] == 2
-    assert t.card.blocks[4] == data[:16] and t.card.blocks[5] == data[16:]
+    assert out["applied"]
+    assert out["verified"] == 2
+    assert t.card.blocks[4] == data[:16]
+    assert t.card.blocks[5] == data[16:]
     assert mode(out["snapshot"]) == 0o600
     snap = dumpfile.Dump.load(out["snapshot"])
-    assert snap.blocks[4] == "00" * 16 and len(snap.blocks) == 64
+    assert snap.blocks[4] == "00" * 16
+    assert len(snap.blocks) == 64
     recs = [json.loads(x) for x in Path(out["journal"]).read_text().splitlines()]
     assert recs[-1] == {
         "block": 5,
@@ -217,7 +232,8 @@ def test_unchanged_blocks_are_not_written():
     t = load_scenario("x3")
     out = ops.write(t, 4, "00" * 16, apply=True)
     assert out["summary"] == {"write": 0, "unchanged": 1, "skip": 0}
-    assert writes(t) == [] and out["snapshot"] is None
+    assert writes(t) == []
+    assert out["snapshot"] is None
 
 
 # ------------------------------------------------------------------ restore
@@ -257,7 +273,8 @@ def test_restore_apply_never_writes_trailers_or_block0(tmp_path):
     targets = sorted(a[3] for a in writes(t))
     assert targets == [4, 5, 8, 9, 10, 13]
     assert all(not classic.is_trailer(b) and b != 0 for b in targets)
-    assert out["protected_blocks_written"] == [] and out["verified"] == 6
+    assert out["protected_blocks_written"] == []
+    assert out["verified"] == 6
     want = dumpfile.Dump.load(p)
     for b in targets:
         assert t.card.blocks[b].hex() == want.blocks[b]
@@ -267,7 +284,8 @@ def test_restore_with_include_trailers_writes_trailer(tmp_path):
     p = _modified_dump(tmp_path)
     t = load_scenario("magic-classic")
     out = ops.restore(t, p, apply=True, include_trailers=True)
-    assert 7 in out["protected_blocks_written"] and 0 in out["protected_blocks_written"]
+    assert 7 in out["protected_blocks_written"]
+    assert 0 in out["protected_blocks_written"]
     assert t.card.blocks[7][:10].hex() == "a0a1a2a3a4a5787788c1"
     assert t.card.blocks[0].hex().startswith("01020304")
 
@@ -300,15 +318,18 @@ def test_restore_dropout_then_resume_byte_identical(tmp_path):
         ops.restore(t, p, apply=True)
     err = ei.value
     assert isinstance(err, CardRemoved)
-    assert err.pending == [8, 9, 10, 13] and err.verified == 2
+    assert err.pending == [8, 9, 10, 13]
+    assert err.verified == 2
     journal = err.journal
     t.transmit = real
     t.clear_faults()
     dry = ops.resume(t, journal)
-    assert dry["applied"] is False and dry["pending_before"] == [8, 9, 10, 13]
+    assert dry["applied"] is False
+    assert dry["pending_before"] == [8, 9, 10, 13]
     n = len(writes(t))
     out = ops.resume(t, journal, apply=True)
-    assert out["verified"] == 4 and len(writes(t)) - n == 4
+    assert out["verified"] == 4
+    assert len(writes(t)) - n == 4
     want = dumpfile.Dump.load(p)
     for b in (4, 5, 8, 9, 10, 13):
         assert t.card.blocks[b].hex() == want.blocks[b]
@@ -342,11 +363,13 @@ def test_resume_refuses_other_tag(tmp_path):
 def test_ndef_format_dry_run_then_apply_then_write_read_erase():
     t = load_scenario("blank-classic")
     dry = ops.ndef_format(t)
-    assert writes(t) == [] and dry["summary"]["write"] == 19  # MAD 2 + block 4 + 16 trailers
+    assert writes(t) == []
+    assert dry["summary"]["write"] == 19
     assert dry["applied"] is False
     seen = guard_snapshot_first(t)
     out = ops.ndef_format(t, apply=True)
-    assert seen and all(seen)
+    assert seen
+    assert all(seen)
     assert out["protected_blocks_written"] == [s * 4 + 3 for s in range(16)]
     template = ndef.classic_format_template()
     assert sorted(a[3] for a in writes(t)) == sorted(template)
@@ -373,7 +396,8 @@ def test_ndef_format_again_is_a_no_op():
     ops.ndef_format(t, apply=True)
     n = len(writes(t))
     again = ops.ndef_format(t, apply=True)
-    assert again["summary"]["write"] == 0 and len(writes(t)) == n
+    assert again["summary"]["write"] == 0
+    assert len(writes(t)) == n
 
 
 def test_ndef_format_validates_template_first(monkeypatch):
@@ -383,27 +407,34 @@ def test_ndef_format_validates_template_first(monkeypatch):
     t = load_scenario("blank-classic")
     with pytest.raises(classic.ClassicError):
         ops.ndef_format(t, apply=True)
-    assert writes(t) == [] and snapshot_files() == []
+    assert writes(t) == []
+    assert snapshot_files() == []
 
 
 def test_ndef_write_on_unformatted_classic_fails():
+    tag = load_scenario("x3")
+    msg = ops.build_message(text="hi")
     with pytest.raises(ops.NotNdefFormatted):
-        ops.ndef_write(load_scenario("x3"), ops.build_message(text="hi"), apply=True)
+        ops.ndef_write(tag, msg, apply=True)
 
 
 def test_ndef_format_refused_on_ntag():
+    tag = load_scenario("ntag215")
     with pytest.raises(NfcError):
-        ops.ndef_format(load_scenario("ntag215"), apply=True)
+        ops.ndef_format(tag, apply=True)
 
 
 def test_ndef_ntag_write_read_erase():
     t = load_scenario("ntag215")
     msg = ops.build_message(text="hello X3", lang="en")
-    assert ops.ndef_write(t, msg)["applied"] is False and writes(t) == []
+    assert ops.ndef_write(t, msg)["applied"] is False
+    assert writes(t) == []
     out = ops.ndef_write(t, msg, apply=True)
-    assert out["verified"] >= 1 and out["snapshot"]
+    assert out["verified"] >= 1
+    assert out["snapshot"]
     rec = ops.ndef_read(t)["records"][0]
-    assert rec["text"] == "hello X3" and rec["lang"] == "en"
+    assert rec["text"] == "hello X3"
+    assert rec["lang"] == "en"
     ops.ndef_erase(t, apply=True)
     assert ops.ndef_read(t)["empty"] is True
 
@@ -412,9 +443,11 @@ def test_ndef_type4_write_read_erase_with_snapshot():
     t = load_scenario("type4")
     msg = ops.build_message(mime="text/plain", payload="abc")
     dry = ops.ndef_write(t, msg)
-    assert dry["applied"] is False and writes(t) == []
+    assert dry["applied"] is False
+    assert writes(t) == []
     out = ops.ndef_write(t, msg, apply=True)
-    assert out["verified"] == 1 and mode(out["snapshot"]) == 0o600
+    assert out["verified"] == 1
+    assert mode(out["snapshot"]) == 0o600
     assert ops.ndef_read(t)["raw"] == msg.hex()
     ops.ndef_erase(t, apply=True)
     assert ops.ndef_read(t)["empty"] is True
@@ -435,7 +468,8 @@ def test_build_message_requires_exactly_one_kind():
 def test_raw_apdu_dry_run_and_trailer_guard():
     t = load_scenario("x3")
     dry = ops.raw_apdu(None, ["FFCA000000"])
-    assert dry["applied"] is False and t.log == []
+    assert dry["applied"] is False
+    assert t.log == []
     with pytest.raises(ops.InvalidInput):
         ops.raw_apdu(t, ["FFD6000310" + "00" * 16], apply=True)
     assert writes(t) == []
@@ -448,5 +482,7 @@ def test_append_audit_writes_0600_json_lines():
     ops.append_audit("api", "01020304", [11])
     assert mode(p) == 0o600
     lines = [json.loads(x) for x in p.read_text().splitlines()]
-    assert lines[0]["surface"] == "mcp" and lines[0]["blocks"] == [3, 7]
-    assert lines[1]["surface"] == "api" and "ts" in lines[0]
+    assert lines[0]["surface"] == "mcp"
+    assert lines[0]["blocks"] == [3, 7]
+    assert lines[1]["surface"] == "api"
+    assert "ts" in lines[0]

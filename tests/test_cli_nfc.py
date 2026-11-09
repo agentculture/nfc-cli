@@ -129,7 +129,8 @@ def test_json_error_shape(monkeypatch, capsys):
     monkeypatch.setattr(nfc_cli.verbs, "invoke", lambda *a, **k: (_ for _ in ()).throw(E.NoCard()))
     assert main(["tag", "uid", "--json"]) == 2
     err = json.loads(capsys.readouterr().err)
-    assert err["code"] == 2 and err["remediation"]
+    assert err["code"] == 2
+    assert err["remediation"]
 
 
 def test_argparse_errors_stay_exit_1(capsys):
@@ -173,7 +174,8 @@ def test_mcp_extra_missing_exit_2(monkeypatch, capsys):
     _stub(monkeypatch, "nfc_cli.mcp.server", run_stdio=run, McpExtraMissing=McpExtraMissing)
     assert main(["mcp"]) == 2
     err = capsys.readouterr().err
-    assert "error: mcp extra missing" in err and "hint: pip install 'nfc-cli[mcp]'" in err
+    assert "error: mcp extra missing" in err
+    assert "hint: pip install 'nfc-cli[mcp]'" in err
 
 
 def test_ui_serve_passes_args(monkeypatch):
@@ -203,7 +205,8 @@ def test_ui_bind_refused_exit_1(monkeypatch, capsys):
     _stub(monkeypatch, "nfc_cli.web.server", serve=serve, BindRefused=BindRefused)
     assert main(["ui", "serve", "--host", "0.0.0.0"]) == 1
     err = capsys.readouterr().err
-    assert "error: refusing public bind" in err and "hint: pass --bind-public" in err
+    assert "error: refusing public bind" in err
+    assert "hint: pass --bind-public" in err
 
 
 # --- learn / description ----------------------------------------------------------------

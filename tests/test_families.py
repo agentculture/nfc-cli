@@ -73,8 +73,9 @@ def test_type2_ndef_roundtrip_and_overflow():
 
 def test_type2_error_status():
     tr = Fake(lambda a: (b"", b"\x63\x00"))
+    ops = families.Type2Ops()
     with pytest.raises(ApduError):
-        families.Type2Ops().read_pages(tr, 0, 4)
+        ops.read_pages(tr, 0, 4)
 
 
 def iso15693_tag(blocks=8, bsize=4, sysinfo=True):
@@ -208,15 +209,18 @@ def test_readonly_reads(family, start, count, expect):
     "family,start", [("topaz", 0x100), ("srix", 0x80), ("picopass", 256), ("cts", 32)]
 )
 def test_readonly_range_checked(family, start):
+    ops = family_ops(family)
+    rec = recorder()
     with pytest.raises(UnsupportedOperation):
-        family_ops(family).read_blocks(recorder(), start, 1)
+        ops.read_blocks(rec, start, 1)
 
 
 @pytest.mark.parametrize("family", ["felica", "topaz", "srix", "picopass", "cts"])
 def test_readonly_writes_refused(family):
     tr = recorder()
+    ops = family_ops(family)
     with pytest.raises(UnsupportedOperation, match="not supported"):
-        family_ops(family).write_blocks(tr, 0, b"\x00" * 8)
+        ops.write_blocks(tr, 0, b"\x00" * 8)
     assert tr.log == []
 
 
@@ -248,7 +252,9 @@ def test_dispatcher_covers_every_atr_family():
         assert family_ops(fam) is not None
     assert isinstance(family_ops("ultralight_c"), families.Type2Ops)
     assert isinstance(family_ops("classic_1k"), families.ClassicFamily)
+    classic_4k_ops = family_ops("classic_4k")
     with pytest.raises(UnsupportedOperation, match="nfc_cli.nfc.classic"):
-        family_ops("classic_4k").read_blocks(None, 0, 1)
+        classic_4k_ops.read_blocks(None, 0, 1)
+    unknown_ops = family_ops("unknown")
     with pytest.raises(UnsupportedOperation):
-        family_ops("unknown").read_blocks(None, 0, 1)
+        unknown_ops.read_blocks(None, 0, 1)

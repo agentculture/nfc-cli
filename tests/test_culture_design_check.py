@@ -26,19 +26,20 @@ PIN = "b4d939ba0aa354a5ae53065319a773e0013de698"
 
 def _load_script() -> ModuleType:
     spec = importlib.util.spec_from_file_location("check_culture_design", SCRIPT_PATH)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
 
-@pytest.fixture()
+@pytest.fixture
 def script() -> ModuleType:
     return _load_script()
 
 
-@pytest.fixture()
+@pytest.fixture
 def copy_dir(tmp_path: Path) -> Path:
     dest = tmp_path / "culture-design"
     shutil.copytree(REAL_DIR, dest)

@@ -46,7 +46,8 @@ def test_x3_matches_fixture():
         assert auth(t, s * 4)[1] == fake.SW_OK
         for i, hexblk in enumerate(entry["blocks"]):
             data, sw = read(t, s * 4 + i)
-            assert sw == fake.SW_OK and data.hex() == hexblk
+            assert sw == fake.SW_OK
+            assert data.hex() == hexblk
 
 
 def test_classic_auth_state_and_wrong_key():
@@ -109,9 +110,11 @@ def test_ntag215():
     atr = t.power_on()
     assert atr.hex() == fake.ATR_NTAG
     uid, sw = t.transmit(bytes.fromhex("FFCA000000"))
-    assert len(uid) == 7 and sw == fake.SW_OK
+    assert len(uid) == 7
+    assert sw == fake.SW_OK
     data, sw = read(t, 3)
-    assert data[:4] == bytes.fromhex("e1103e00") and len(data) == 16
+    assert data[:4] == bytes.fromhex("e1103e00")
+    assert len(data) == 16
     assert write(t, 4, b"\x03\x00\xfe\x00") == (b"", fake.SW_OK)
     assert read(t, 4, 4)[0] == b"\x03\x00\xfe\x00"
     assert write(t, 0, bytes(4))[1] == fake.SW_DENIED
@@ -135,7 +138,9 @@ def test_type4_ndef_app():
     assert t.transmit(bytes.fromhex("00A4040007D276000085010100"))[1] == fake.SW_OK
     assert t.transmit(bytes.fromhex("00A4000C02E103"))[1] == fake.SW_OK
     cc, sw = t.transmit(bytes.fromhex("00B000000F"))
-    assert sw == fake.SW_OK and cc[:2] == b"\x00\x0f" and cc[9:11] == b"\xe1\x04"
+    assert sw == fake.SW_OK
+    assert cc[:2] == b"\x00\x0f"
+    assert cc[9:11] == b"\xe1\x04"
     assert t.transmit(bytes.fromhex("00A4000C02E104"))[1] == fake.SW_OK
     assert t.transmit(bytes.fromhex("00D60000" + "05" + "0003d1010a"))[1] == fake.SW_OK
     assert t.transmit(bytes.fromhex("00B0000005"))[0] == bytes.fromhex("0003d1010a")
@@ -150,8 +155,9 @@ def test_fault_card_removed_after():
     t.card_removed_after(2)
     t.transmit(bytes.fromhex("FFCA000000"))
     t.transmit(bytes.fromhex("FFCA000000"))
+    apdu = bytes.fromhex("FFCA000000")
     with pytest.raises(CardRemoved):
-        t.transmit(bytes.fromhex("FFCA000000"))
+        t.transmit(apdu)
     assert not t.present()
     with pytest.raises(NoCard):
         t.power_on()
@@ -200,4 +206,5 @@ def test_unknown_scenario_and_escape():
         fake.load_scenario("nope")
     t = fake.load_scenario("x3")
     t.escape_responses[b"\xe0\x00"] = b"\x01"
-    assert t.escape(b"\xe0\x00") == b"\x01" and t.escape(b"\x00") == b""
+    assert t.escape(b"\xe0\x00") == b"\x01"
+    assert t.escape(b"\x00") == b""
