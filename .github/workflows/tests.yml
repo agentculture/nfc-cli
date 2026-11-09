@@ -41,6 +41,20 @@ jobs:
         env:
           SONAR_HOST_URL: https://sonarcloud.io
 
+      # Fail the PR on any unresolved SonarCloud issue. The quality gate above
+      # stays green with open code smells on new code (only new bugs/vulns or a
+      # coverage regression turn it red), so this stricter gate lists the PR's
+      # OPEN or CONFIRMED issues and fails while any remains. ACCEPTED and
+      # FALSE_POSITIVE issues are resolved by a person and pass. Ported from
+      # culture-rules (the standard CI).
+      - name: SonarCloud unresolved issues
+        if: env.SONAR_TOKEN != '' && github.event_name == 'pull_request'
+        env:
+          SONAR_HOST_URL: https://sonarcloud.io
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/sonar-pr-issues.py
+
   lint:
     runs-on: ubuntu-latest
     permissions:

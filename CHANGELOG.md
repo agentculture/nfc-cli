@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.8] - 2026-11-09
+
+### Added
+
+- CI gate: `scripts/sonar-pr-issues.py` fails a pull request that has any
+  unresolved (OPEN or CONFIRMED) SonarCloud issue, not just ones that turn the
+  quality gate red. The SonarCloud quality gate stays green with open code
+  smells on new code, so this stricter gate waits for the PR's head-commit
+  analysis and lists every unresolved issue; ACCEPTED and FALSE_POSITIVE issues
+  (resolved by a person) pass. Ported verbatim from culture-rules (the standard
+  CI), with `tests/test_sonar_pr_issues.py`. Wired into the `test` job's
+  `SonarCloud unresolved issues` step (PRs only, skipped without `SONAR_TOKEN`).
+
 ## [0.12.7] - 2026-11-08
 
 ### Changed
