@@ -172,6 +172,38 @@ _NOUNS = {
 }
 
 
+def _noun_doc(noun: str, blurb: str, verbs: list) -> str:
+    """The overview page for one noun: its blurb plus a list of its verbs."""
+    lines = "\n".join(f"- `nfc-cli {noun} {v.verb}` — {v.summary}" for v in verbs)
+    return (
+        f"# nfc-cli {noun}\n\n{blurb} Every verb accepts `--json`, `--trace` (APDU trace on "
+        f"stderr) and `--reader`; mutating verbs are a dry-run unless `--apply`.\n\n"
+        f"## Verbs\n\n{lines}\n- `nfc-cli {noun} overview` — describe this noun.\n"
+    )
+
+
+def _verb_doc(noun: str, v) -> str:
+    """The per-verb page: summary, options (params + --apply), trailer note, usage."""
+    flags = []
+    for p in v.params:
+        shown = p.name if p.positional else "--" + p.name.replace("_", "-")
+        flags.append(f"- `{shown}` — {p.help}")
+    if v.mutating:
+        flags.append("- `--apply` — commit the write (default is a dry-run)")
+    flag_text = "\n".join(flags) or "- (none)"
+    note = ""
+    if v.extra.get("trailer_flag"):
+        note = (
+            "\nSector trailers and block 0 are protected: they are only written with "
+            "`--include-trailers` (ndef format writes its fixed template trailers).\n"
+        )
+    return (
+        f"# nfc-cli {noun} {v.verb}\n\n{v.summary}.\n\n## Options\n\n{flag_text}\n"
+        f"- `--json`, `--trace`, `--reader`\n{note}\n## Usage\n\n"
+        f"    nfc-cli {noun} {v.verb} --json\n"
+    )
+
+
 def _registry_entries() -> dict[tuple[str, ...], str]:
     import nfc_cli.verbs  # noqa: F401  (registers the verbs)
     from nfc_cli.registry import REGISTRY
@@ -179,32 +211,10 @@ def _registry_entries() -> dict[tuple[str, ...], str]:
     out: dict[tuple[str, ...], str] = {}
     for noun, blurb in _NOUNS.items():
         verbs = REGISTRY.verbs(noun)
-        lines = "\n".join(f"- `nfc-cli {noun} {v.verb}` — {v.summary}" for v in verbs)
-        out[(noun,)] = (
-            f"# nfc-cli {noun}\n\n{blurb} Every verb accepts `--json`, `--trace` (APDU trace on "
-            f"stderr) and `--reader`; mutating verbs are a dry-run unless `--apply`.\n\n"
-            f"## Verbs\n\n{lines}\n- `nfc-cli {noun} overview` — describe this noun.\n"
-        )
+        out[(noun,)] = _noun_doc(noun, blurb, verbs)
         out[(noun, "overview")] = out[(noun,)]
         for v in verbs:
-            flags = []
-            for p in v.params:
-                shown = p.name if p.positional else "--" + p.name.replace("_", "-")
-                flags.append(f"- `{shown}` — {p.help}")
-            if v.mutating:
-                flags.append("- `--apply` — commit the write (default is a dry-run)")
-            flag_text = "\n".join(flags) or "- (none)"
-            note = ""
-            if v.extra.get("trailer_flag"):
-                note = (
-                    "\nSector trailers and block 0 are protected: they are only written with "
-                    "`--include-trailers` (ndef format writes its fixed template trailers).\n"
-                )
-            out[v.path] = (
-                f"# nfc-cli {noun} {v.verb}\n\n{v.summary}.\n\n## Options\n\n{flag_text}\n"
-                f"- `--json`, `--trace`, `--reader`\n{note}\n## Usage\n\n"
-                f"    nfc-cli {noun} {v.verb} --json\n"
-            )
+            out[v.path] = _verb_doc(noun, v)
     return out
 
 

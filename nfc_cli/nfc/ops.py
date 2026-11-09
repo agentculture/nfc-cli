@@ -625,6 +625,42 @@ def magic_check(t: Transport, **keyargs) -> dict:
     }
 
 
+def _read_group_rows(
+    t: Transport,
+    card: Card,
+    acc: _Access,
+    blocks: list[int],
+    *,
+    retry_timeout: float,
+    sleep: Sleep,
+    clock: Clock,
+    dropouts: int,
+) -> tuple[list[bytes] | None, int]:
+    """Read one group's blocks, retrying on dropouts. Return (rows or None, dropouts)."""
+    while True:
+        try:
+            return [acc.effective(b, acc.read(b)) for b in blocks], dropouts
+        except AuthFailed:
+            return None, dropouts
+        except (CardRemoved, NoCard):
+            dropouts += 1
+            if dropouts > _MAX_DROPOUTS:
+                raise
+            acc.invalidate()
+            _reacquire(t, card, retry_timeout, sleep, clock)
+
+
+def _store_group_rows(
+    d: dumpfile.Dump, acc: _Access, group: int, blocks: list[int], rows: list[bytes]
+) -> None:
+    """Record a group's read rows (and the Classic key used) into the dump."""
+    for b, row in zip(blocks, rows):
+        d.blocks[b] = row.hex()
+    if isinstance(acc, _ClassicAccess) and group in acc.found:
+        kt, k = acc.found[group]
+        d.keys_used[group] = (kt, k.hex())
+
+
 def _read_all(
     t: Transport,
     card: Card,
@@ -648,27 +684,20 @@ def _read_all(
     for group, blocks in groups:
         if all(b in d.blocks for b in blocks):
             continue
-        while True:
-            try:
-                rows = [acc.effective(b, acc.read(b)) for b in blocks]
-                break
-            except AuthFailed:
-                rows = None
-                break
-            except (CardRemoved, NoCard):
-                dropouts += 1
-                if dropouts > _MAX_DROPOUTS:
-                    raise
-                acc.invalidate()
-                _reacquire(t, card, retry_timeout, sleep, clock)
+        rows, dropouts = _read_group_rows(
+            t,
+            card,
+            acc,
+            blocks,
+            retry_timeout=retry_timeout,
+            sleep=sleep,
+            clock=clock,
+            dropouts=dropouts,
+        )
         if rows is None:
             failed.append(group)
             continue
-        for b, row in zip(blocks, rows):
-            d.blocks[b] = row.hex()
-        if isinstance(acc, _ClassicAccess) and group in acc.found:
-            kt, k = acc.found[group]
-            d.keys_used[group] = (kt, k.hex())
+        _store_group_rows(d, acc, group, blocks, rows)
         if on_progress:
             on_progress(d)
     return d, failed
@@ -1430,6 +1459,18 @@ def _raw_write_protected(family: str | None, block: int) -> str | None:
     return None
 
 
+def _refuse_protected_raw_writes(cmds: list[bytes], fam: str | None) -> None:
+    """Reject raw FF D6 writes to a protected block/page (block 0, Classic trailers)."""
+    for c in cmds:
+        if c[0] == 0xFF and c[1] == 0xD6:
+            blk, reason = c[3], _raw_write_protected(fam, c[3])
+            if reason:
+                raise InvalidInput(
+                    f"refusing raw write to block/page {blk} ({reason})",
+                    "pass include_trailers / --include-trailers only if you really mean it",
+                )
+
+
 def raw_apdu(
     t: Transport,
     apdus: list[str | bytes],
@@ -1445,14 +1486,7 @@ def raw_apdu(
     card = connect(t) if apply else None
     if not include_trailers:
         fam = card.family if card is not None else None
-        for c in cmds:
-            if c[0] == 0xFF and c[1] == 0xD6:
-                blk, reason = c[3], _raw_write_protected(fam, c[3])
-                if reason:
-                    raise InvalidInput(
-                        f"refusing raw write to block/page {blk} ({reason})",
-                        "pass include_trailers / --include-trailers only if you really mean it",
-                    )
+        _refuse_protected_raw_writes(cmds, fam)
     if not apply:
         return {"applied": False, "apdus": [c.hex() for c in cmds], "responses": []}
     out = []

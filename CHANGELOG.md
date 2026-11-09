@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.12.8] - 2026-11-09
 
+### Changed
+
+- Refactored the ten functions SonarCloud flagged for cognitive complexity
+  (`ndef.encode_message`/`decode_message`/`tlv_unwrap`, `ops._read_all`/`raw_apdu`,
+  `fake._update`/`transmit`, `web.server.do_POST`, `cli._nfcgroup._lines`,
+  `explain.catalog._registry_entries`) by extracting focused helpers. Behaviour
+  is unchanged (457 tests pass); each function is now under the complexity
+  threshold.
+
 ### Added
 
 - CI gate: `scripts/sonar-pr-issues.py` fails a pull request that has any

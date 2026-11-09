@@ -21,7 +21,14 @@ from nfc_cli import verbs
 from nfc_cli.nfc import ops
 from nfc_cli.nfc import reader as reader_mod
 from nfc_cli.nfc.errors import NfcError, ReaderBusy
-from nfc_cli.registry import REGISTRY, ArgumentError, Context, api_route, validate_arguments
+from nfc_cli.registry import (
+    REGISTRY,
+    ArgumentError,
+    Context,
+    Verb,
+    api_route,
+    validate_arguments,
+)
 from nfc_cli.web.guard import Guard, GuardError, load_secret
 
 __all__ = ["BindRefused", "DEFAULT_HOST", "DEFAULT_PORT", "make_server", "resolve_bind", "serve"]
@@ -272,6 +279,41 @@ class Handler(BaseHTTPRequestHandler):
             return REGISTRY.get(parts[1], parts[2])
         return None
 
+    def _body_length(self) -> int | None:
+        """Parse Content-Length; send a 400 and return None if bad or oversized."""
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length < 0 or length > MAX_BODY:
+            self._json(400, _error_body(NfcError("bad or oversized body", "send JSON"), "user"))
+            return None
+        return length
+
+    def _run_verb(self, verb: Verb, raw: bytes) -> Any:
+        """Parse the JSON body, validate arguments, and invoke the verb (may raise)."""
+        body = json.loads(raw) if raw.strip() else {}
+        if not isinstance(body, dict):
+            raise ValueError("body must be a JSON object")
+        params, apply = validate_arguments(verb, body)
+        ctx = Context(apply=apply, transport_factory=self.app.factory)
+        with self.app.state.lock:
+            return verbs.invoke(verb, params, ctx, surface="api")
+
+    def _handle_verb_error(self, exc: Exception) -> None:
+        """Map an exception from _run_verb to the right HTTP status + error body."""
+        if isinstance(exc, (json.JSONDecodeError, ValueError)):
+            kind = exc if isinstance(exc, ArgumentError) else ArgumentError(str(exc))
+            return self._json(400, _error_body(kind, "user"))
+        if isinstance(exc, _USER_ERRORS):
+            return self._json(400, _error_body(exc, "user"))
+        if isinstance(exc, ReaderBusy):
+            return self._json(409, _error_body(exc, "env"))
+        if isinstance(exc, NfcError):
+            return self._json(503, _error_body(exc, "env"))
+        err = NfcError(f"{type(exc).__name__}: {exc}", "file a bug with the request details")
+        return self._json(500, _error_body(err, "env"))
+
     def do_POST(self) -> None:  # noqa: N802
         path = self.path.split("?", 1)[0]
         if not self._guard(need_secret=True):
@@ -279,35 +321,14 @@ class Handler(BaseHTTPRequestHandler):
         verb = self._verb_for(path)
         if verb is None or api_route(verb) != path:
             return self._json(404, _error_body(NfcError("no such route", "see /api"), "user"))
-        try:
-            length = int(self.headers.get("Content-Length") or 0)
-        except ValueError:
-            length = -1
-        if length < 0 or length > MAX_BODY:
-            return self._json(
-                400, _error_body(NfcError("bad or oversized body", "send JSON"), "user")
-            )
+        length = self._body_length()
+        if length is None:
+            return
         raw = self.rfile.read(length) if length else b""
         try:
-            body = json.loads(raw) if raw.strip() else {}
-            if not isinstance(body, dict):
-                raise ValueError("body must be a JSON object")
-            params, apply = validate_arguments(verb, body)
-            ctx = Context(apply=apply, transport_factory=self.app.factory)
-            with self.app.state.lock:
-                result = verbs.invoke(verb, params, ctx, surface="api")
-        except (json.JSONDecodeError, ValueError) as exc:
-            kind_exc: Exception = exc if isinstance(exc, ArgumentError) else ArgumentError(str(exc))
-            return self._json(400, _error_body(kind_exc, "user"))
-        except _USER_ERRORS as exc:
-            return self._json(400, _error_body(exc, "user"))
-        except ReaderBusy as exc:
-            return self._json(409, _error_body(exc, "env"))
-        except NfcError as exc:
-            return self._json(503, _error_body(exc, "env"))
-        except Exception as exc:  # noqa: BLE001 - never leak a traceback
-            err = NfcError(f"{type(exc).__name__}: {exc}", "file a bug with the request details")
-            return self._json(500, _error_body(err, "env"))
+            result = self._run_verb(verb, raw)
+        except Exception as exc:  # noqa: BLE001 - mapped to a clean error, never a traceback
+            return self._handle_verb_error(exc)
         self._json(200, {"ok": True, "result": result})
 
 

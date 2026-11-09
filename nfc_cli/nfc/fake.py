@@ -208,6 +208,29 @@ class MifareClassic1K(FakeCard):
             return SW_DENIED
         return raw + SW_OK
 
+    def _nak(self) -> bytes:
+        """A refused write: the chip mutes (NAK) when configured, else returns DENIED."""
+        if self.mute_on_nak:
+            self.halted = True
+            return SW_MUTE
+        return SW_DENIED
+
+    def _write_trailer(self, who: str, block: int, data: bytes) -> bytes:
+        """Apply a sector-trailer write, field by field, honouring the access bits."""
+        keya_w, _, acc_w, _, keyb_w = _TRAILER_RULES[self._cond(block)]
+        if not any(self._allowed(who, r) for r in (keya_w, acc_w, keyb_w)):
+            # nothing in this trailer is writable with the current key: the chip NAKs
+            return self._nak()
+        new = bytearray(self.blocks[block])
+        if self._allowed(who, keya_w):
+            new[0:6] = data[0:6]
+        if self._allowed(who, acc_w):
+            new[6:10] = data[6:10]
+        if self._allowed(who, keyb_w):
+            new[10:16] = data[10:16]
+        self.blocks[block] = bytes(new)
+        return SW_OK
+
     def _update(self, block: int, data: bytes) -> bytes:
         if len(data) != 16:
             return SW_WRONG_LEN
@@ -219,28 +242,9 @@ class MifareClassic1K(FakeCard):
         if block == 0 and not self.magic:
             return SW_DENIED
         if self._is_trailer(block):
-            keya_w, _, acc_w, _, keyb_w = _TRAILER_RULES[self._cond(block)]
-            if not any(self._allowed(who, r) for r in (keya_w, acc_w, keyb_w)):
-                # nothing in this trailer is writable with the current key: the chip NAKs
-                if self.mute_on_nak:
-                    self.halted = True
-                    return SW_MUTE
-                return SW_DENIED
-            old = self.blocks[block]
-            new = bytearray(old)
-            if self._allowed(who, keya_w):
-                new[0:6] = data[0:6]
-            if self._allowed(who, acc_w):
-                new[6:10] = data[6:10]
-            if self._allowed(who, keyb_w):
-                new[10:16] = data[10:16]
-            self.blocks[block] = bytes(new)
-            return SW_OK
+            return self._write_trailer(who, block, data)
         if not self._allowed(who, _DATA_RULES[self._cond(block)][1]):
-            if self.mute_on_nak:
-                self.halted = True
-                return SW_MUTE
-            return SW_DENIED
+            return self._nak()
         self.blocks[block] = bytes(data)
         return SW_OK
 
@@ -469,25 +473,44 @@ class FakeTransport:
         if self.card is not None:
             self.card.power_on()  # drop volatile state
 
-    def transmit(self, apdu: bytes) -> tuple[bytes, bytes]:
-        self._check_busy()
-        apdu = bytes(apdu)
+    def _raise_if_gone(self) -> None:
+        """Raise NoCard/CardRemoved if the tag has left the field or hit its removal count."""
         if self._gone():
             raise NoCard() if self.card is None else CardRemoved()
         if self._remove_after is not None and self._apdu_count >= self._remove_after:
             self._removed = True
             raise CardRemoved()
-        self._apdu_count += 1
-        self.log.append(("apdu", apdu))
-        ins = apdu[1] if len(apdu) > 1 else None
+
+    def _auth_denied(self, apdu: bytes, ins: int | None) -> bool:
+        """True when a scripted authentication (FF 86) should fail for this APDU."""
+        return (
+            ins == 0x86
+            and len(apdu) >= 8
+            and bool(self._auth_fail)
+            and (self._auth_fail is True or apdu[7] in self._auth_fail)
+        )
+
+    def _scripted_sw(self, apdu: bytes, ins: int | None) -> bytes | None:
+        """A scripted status word for this APDU (from ``_sw`` rules / auth failures), or None."""
         for rule in self._sw:
             if rule[0] in (None, ins) and (rule[2] is None or rule[2] > 0):
                 if rule[2] is not None:
                     rule[2] -= 1
-                return b"", rule[1]
-        if ins == 0x86 and len(apdu) >= 8 and self._auth_fail:
-            if self._auth_fail is True or apdu[7] in self._auth_fail:
-                return b"", SW_DENIED
+                return rule[1]
+        if self._auth_denied(apdu, ins):
+            return SW_DENIED
+        return None
+
+    def transmit(self, apdu: bytes) -> tuple[bytes, bytes]:
+        self._check_busy()
+        apdu = bytes(apdu)
+        self._raise_if_gone()
+        self._apdu_count += 1
+        self.log.append(("apdu", apdu))
+        ins = apdu[1] if len(apdu) > 1 else None
+        sw = self._scripted_sw(apdu, ins)
+        if sw is not None:
+            return b"", sw
         resp = self._dispatch(apdu)
         return resp[:-2], resp[-2:]
 

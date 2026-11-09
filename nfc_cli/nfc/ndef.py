@@ -74,34 +74,41 @@ class NdefRecord:
 # ---------------------------------------------------------------- records
 
 
-def encode_message(records: list[NdefRecord]) -> bytes:
-    if not records:
-        raise NdefError("an NDEF message needs at least one record")
+def _encode_record(r: NdefRecord, *, first: bool, last: bool) -> bytes:
+    """Serialise one record with its MB/ME/SR/IL header flags."""
+    if not 0 <= r.tnf <= 6:
+        raise NdefError(f"invalid TNF {r.tnf}")
+    if len(r.type) > 255 or len(r.id) > 255:
+        raise NdefError("record type/id longer than 255 bytes")
+    sr = len(r.payload) < 256
+    flags = r.tnf
+    flags |= _MB if first else 0
+    flags |= _ME if last else 0
+    flags |= _SR if sr else 0
+    flags |= _IL if r.id else 0
     out = bytearray()
-    last = len(records) - 1
-    for i, r in enumerate(records):
-        if not 0 <= r.tnf <= 6:
-            raise NdefError(f"invalid TNF {r.tnf}")
-        if len(r.type) > 255 or len(r.id) > 255:
-            raise NdefError("record type/id longer than 255 bytes")
-        sr = len(r.payload) < 256
-        flags = r.tnf
-        flags |= _MB if i == 0 else 0
-        flags |= _ME if i == last else 0
-        flags |= _SR if sr else 0
-        flags |= _IL if r.id else 0
-        out.append(flags)
-        out.append(len(r.type))
-        out += bytes([len(r.payload)]) if sr else len(r.payload).to_bytes(4, "big")
-        if r.id:
-            out.append(len(r.id))
-        out += r.type + r.id + r.payload
+    out.append(flags)
+    out.append(len(r.type))
+    out += bytes([len(r.payload)]) if sr else len(r.payload).to_bytes(4, "big")
+    if r.id:
+        out.append(len(r.id))
+    out += r.type + r.id + r.payload
     return bytes(out)
 
 
-def decode_message(data: bytes, strict: bool = False) -> list[NdefRecord]:
-    records: list[NdefRecord] = []
-    pos, n = 0, len(data)
+def encode_message(records: list[NdefRecord]) -> bytes:
+    if not records:
+        raise NdefError("an NDEF message needs at least one record")
+    last = len(records) - 1
+    out = bytearray()
+    for i, r in enumerate(records):
+        out += _encode_record(r, first=i == 0, last=i == last)
+    return bytes(out)
+
+
+def _parse_record(data: bytes, pos: int, *, first: bool) -> tuple[NdefRecord, int, int]:
+    """Parse one record at ``pos``; return (record, new_pos, flags)."""
+    n = len(data)
 
     def take(count: int) -> bytes:
         nonlocal pos
@@ -111,19 +118,26 @@ def decode_message(data: bytes, strict: bool = False) -> list[NdefRecord]:
         pos += count
         return chunk
 
+    flags = take(1)[0]
+    if first and not flags & _MB:
+        raise NdefError("first record lacks the MB flag")
+    if flags & _CF:
+        raise NdefError("chunked records are not supported")
+    type_len = take(1)[0]
+    pay_len = take(1)[0] if flags & _SR else int.from_bytes(take(4), "big")
+    id_len = take(1)[0] if flags & _IL else 0
+    rtype, rid, payload = take(type_len), take(id_len), take(pay_len)
+    return NdefRecord(flags & 0x07, rtype, rid, payload), pos, flags
+
+
+def decode_message(data: bytes, strict: bool = False) -> list[NdefRecord]:
     if not data:
         raise NdefError("empty NDEF message")
+    records: list[NdefRecord] = []
+    pos, n = 0, len(data)
     while True:
-        flags = take(1)[0]
-        if not records and not flags & _MB:
-            raise NdefError("first record lacks the MB flag")
-        if flags & _CF:
-            raise NdefError("chunked records are not supported")
-        type_len = take(1)[0]
-        pay_len = take(1)[0] if flags & _SR else int.from_bytes(take(4), "big")
-        id_len = take(1)[0] if flags & _IL else 0
-        rtype, rid, payload = take(type_len), take(id_len), take(pay_len)
-        records.append(NdefRecord(flags & 0x07, rtype, rid, payload))
+        record, pos, flags = _parse_record(data, pos, first=not records)
+        records.append(record)
         if flags & _ME:
             if strict and pos != n:
                 raise NdefError("trailing bytes after the final NDEF record")
@@ -183,6 +197,21 @@ def tlv_wrap(message: bytes) -> bytes:
     return b"\x03" + length + message + b"\xfe"
 
 
+def _read_tlv_length(data: bytes, pos: int) -> tuple[int, int]:
+    """Read a TLV length (1 byte, or 0xFF + 2 bytes) at ``pos``; return (length, new_pos)."""
+    n = len(data)
+    if pos >= n:
+        raise NdefError("truncated TLV")
+    length = data[pos]
+    pos += 1
+    if length == 0xFF:
+        if pos + 2 > n:
+            raise NdefError("truncated TLV length")
+        length = int.from_bytes(data[pos : pos + 2], "big")
+        pos += 2
+    return length, pos
+
+
 def tlv_unwrap(data: bytes) -> bytes | None:
     """Return the NDEF message bytes, or None if there is none (terminator first)."""
     pos, n = 0, len(data)
@@ -193,15 +222,7 @@ def tlv_unwrap(data: bytes) -> bytes | None:
             continue
         if tag == 0xFE:
             return None
-        if pos >= n:
-            raise NdefError("truncated TLV")
-        length = data[pos]
-        pos += 1
-        if length == 0xFF:
-            if pos + 2 > n:
-                raise NdefError("truncated TLV length")
-            length = int.from_bytes(data[pos : pos + 2], "big")
-            pos += 2
+        length, pos = _read_tlv_length(data, pos)
         if pos + length > n:
             raise NdefError("TLV value runs past end of data")
         if tag == 0x03:

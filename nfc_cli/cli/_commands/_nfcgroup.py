@@ -87,22 +87,23 @@ def _table(rows: list[dict[str, Any]], indent: str) -> list[str]:
     return out
 
 
+def _kv_lines(k: str, v: Any, indent: str) -> list[str]:
+    """Render one ``key: value`` entry (recursing for nested dicts / tables)."""
+    if isinstance(v, dict) and v:
+        return [f"{indent}{k}:", *_lines(v, indent + "  ")]
+    if isinstance(v, list) and v and all(isinstance(i, dict) for i in v):
+        return [f"{indent}{k}:", *_table(v, indent + "  ")]
+    if isinstance(v, list) and v:
+        return [f"{indent}{k}: " + ", ".join(_scalar(i) for i in v)]
+    return [f"{indent}{k}: {_scalar(v) if v not in ({}, []) else '-'}"]
+
+
 def _lines(value: Any, indent: str = "") -> list[str]:
+    if not isinstance(value, dict):
+        return [f"{indent}{_scalar(value)}"]
     out: list[str] = []
-    if isinstance(value, dict):
-        for k, v in value.items():
-            if isinstance(v, dict) and v:
-                out.append(f"{indent}{k}:")
-                out += _lines(v, indent + "  ")
-            elif isinstance(v, list) and v and all(isinstance(i, dict) for i in v):
-                out.append(f"{indent}{k}:")
-                out += _table(v, indent + "  ")
-            elif isinstance(v, list) and v:
-                out.append(f"{indent}{k}: " + ", ".join(_scalar(i) for i in v))
-            else:
-                out.append(f"{indent}{k}: {_scalar(v) if v not in ({}, []) else '-'}")
-    else:
-        out.append(f"{indent}{_scalar(value)}")
+    for k, v in value.items():
+        out += _kv_lines(k, v, indent)
     return out
 
 
