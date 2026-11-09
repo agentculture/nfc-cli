@@ -36,6 +36,8 @@ __all__ = ["BindRefused", "DEFAULT_HOST", "DEFAULT_PORT", "make_server", "resolv
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8770  # avoids 8765/8791/8796/8823 used by sibling repos
 MAX_BODY = 1_000_000
+_INDEX_HTML = "index.html"
+_HEAD_CLOSE = "</head>"
 POLL_INTERVAL = 1.0
 _USER_ERRORS = (ArgumentError, ops.InvalidInput, verbs.TrailerFlagRequired)
 
@@ -77,7 +79,7 @@ def _resolve_port(port: int | None) -> int:
 
 def _dist_dir() -> Path | None:
     for cand in (Path(__file__).parent / "dist", Path(__file__).resolve().parents[2] / "web/dist"):
-        if (cand / "index.html").is_file():
+        if (cand / _INDEX_HTML).is_file():
             return cand
     return None
 
@@ -234,7 +236,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.write(b": keepalive\n\n")
                 self.wfile.flush()
                 self.app.stopping.wait(self.app.poll_interval)
-        except (BrokenPipeError, ConnectionResetError, OSError):
+        except OSError:
             pass
 
     def _static(self, path: str) -> None:
@@ -251,17 +253,19 @@ class Handler(BaseHTTPRequestHandler):
             for part in PurePosixPath(path.lstrip("/")).parts
             if part not in ("", ".", "..") and ":" not in part
         ]
-        target = root.joinpath(*safe_parts).resolve() if safe_parts else root / "index.html"
+        target = root.joinpath(*safe_parts).resolve() if safe_parts else root / _INDEX_HTML
         if target != root and root not in target.parents:
-            target = root / "index.html"  # escaped containment -> SPA fallback
+            target = root / _INDEX_HTML  # escaped containment -> SPA fallback
         if not target.is_file():
-            target = root / "index.html"  # SPA fallback for unknown routes
+            target = root / _INDEX_HTML  # SPA fallback for unknown routes
         data = target.read_bytes()
-        if target.name == "index.html" and self.app.embed_secret:
+        if target.name == _INDEX_HTML and self.app.embed_secret:
             meta = f'<meta name="nfc-cli-secret" content="{html.escape(self.app.secret)}">'
             text = data.decode("utf-8")
             text = (
-                text.replace("</head>", meta + "</head>", 1) if "</head>" in text else meta + text
+                text.replace(_HEAD_CLOSE, meta + _HEAD_CLOSE, 1)
+                if _HEAD_CLOSE in text
+                else meta + text
             )
             data = text.encode("utf-8")
         import mimetypes

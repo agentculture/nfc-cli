@@ -230,7 +230,7 @@ def _reacquire(t: Transport, uid: bytes, attempts: int = 8, delay: float = 0.3) 
             _power_cycle(t)
             if get_uid(t)[:4] == uid:
                 return
-        except (ApduError, NfcError) as exc:
+        except NfcError as exc:
             last = exc
         time.sleep(delay)
     if last is not None:

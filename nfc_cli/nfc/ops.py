@@ -280,10 +280,10 @@ class _Access:
     def all_blocks(self) -> list[int]:
         raise families.UnsupportedOperation("this tag family has no block map")
 
-    def protected(self, block: int) -> str | None:
+    def protected(self, _block: int) -> str | None:
         return None
 
-    def is_trailer(self, block: int) -> bool:
+    def is_trailer(self, _block: int) -> bool:
         return False
 
     def read(self, block: int) -> bytes:  # pragma: no cover - interface
@@ -292,19 +292,19 @@ class _Access:
     def write(self, block: int, data: bytes) -> None:
         raise families.UnsupportedOperation("writing is not supported for this tag family")
 
-    def effective(self, block: int, raw: bytes) -> bytes:
+    def effective(self, _block: int, raw: bytes) -> bytes:
         return raw
 
     def verify(self, block: int, data: bytes) -> bool:
         return self.read(block) == data
 
-    def same(self, block: int, old: bytes, new: bytes) -> bool:
+    def same(self, _block: int, old: bytes, new: bytes) -> bool:
         return old == new
 
     def invalidate(self) -> None:
         """Forget volatile card state (after a dropout or power cycle)."""
 
-    def mask(self, block: int, hexstr: str) -> str:
+    def mask(self, _block: int, hexstr: str) -> str:
         return hexstr
 
 
@@ -520,7 +520,7 @@ class _ReadOnlyAccess(_Access):
         for b in range(self.ops.max_block + 1):
             try:
                 self.read(b)
-            except (ApduError, NfcError):
+            except NfcError:
                 break
             out.append(b)
         return out
@@ -801,7 +801,7 @@ def _load_dump(path: str | os.PathLike, fmt: str = "json") -> dumpfile.Dump:
 # ===================================================================== write engine
 
 
-def _diff_entry(acc: _Access, block: int, old: bytes | None, new: bytes, action: str, **kw):
+def _diff_entry(block: int, old: bytes | None, new: bytes, action: str, **kw):
     return {
         "block": block,
         "old": None if old is None else old.hex(),
@@ -821,15 +821,15 @@ def _plan(acc: _Access, changes: dict[int, bytes], include_trailers: bool) -> li
             )
         reason = acc.protected(block)
         if reason and not include_trailers:
-            entries.append(_diff_entry(acc, block, None, new, "skip", reason=reason))
+            entries.append(_diff_entry(block, None, new, "skip", reason=reason))
             continue
         try:
             old = acc.effective(block, acc.read(block))
         except (AuthFailed, ApduError) as exc:
-            entries.append(_diff_entry(acc, block, None, new, "write", error=str(exc)))
+            entries.append(_diff_entry(block, None, new, "write", error=str(exc)))
             continue
         action = "unchanged" if acc.same(block, old, new) else "write"
-        entries.append(_diff_entry(acc, block, old, new, action))
+        entries.append(_diff_entry(block, old, new, action))
     return entries
 
 
@@ -888,8 +888,6 @@ def _meta_path(journal: Path) -> Path:
 
 
 def _execute(
-    t: Transport,
-    card: Card,
     acc: _Access,
     entries: list[dict],
     journal: Journal,
@@ -962,7 +960,7 @@ def _mutate(
         snap = _snapshot(t, card, acc, snapshot_path)
         if journal is None:
             journal = _new_journal(card, op, include_trailers, snap)
-        verified, protected = _execute(t, card, acc, entries, journal)
+        verified, protected = _execute(acc, entries, journal)
         result["applied"] = True
     elif apply:
         result["applied"] = True  # nothing to change

@@ -580,7 +580,7 @@ def check_trailer_gate(verb: Verb, params: dict, apply: bool, surface: str) -> N
         )
 
 
-def _confine_output(verb: Verb, params: dict, surface: str) -> None:
+def _confine_output(params: dict, surface: str) -> None:
     """Over MCP/web, keep a file-writing ``output`` inside the dumps dir (no arbitrary
     path a remote caller could overwrite). The CLI (a local operator) may write anywhere."""
     if surface not in GATED_SURFACES:
@@ -601,7 +601,7 @@ def _confine_output(verb: Verb, params: dict, surface: str) -> None:
 def invoke(verb: Verb, params: dict, ctx: Context, surface: str = "cli") -> dict:
     """Run a verb the way every surface should: trailer gate, handler, audit log."""
     check_trailer_gate(verb, params, ctx.apply, surface)
-    _confine_output(verb, params, surface)
+    _confine_output(params, surface)
     result = verb.handler(ctx, **params)
     written = result.get("protected_blocks_written") if isinstance(result, dict) else None
     if written:

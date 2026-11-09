@@ -161,7 +161,7 @@ class MifareClassic1K(FakeCard):
 
     # -- APDUs
     def handle(self, apdu: bytes) -> bytes:
-        cla, ins, p1, p2, data, le = _split(apdu)
+        cla, ins, _, p2, data, le = _split(apdu)
         if cla != 0xFF:
             return SW_BAD_INS
         if ins == 0x82:
@@ -255,7 +255,7 @@ class MifareClassic1K(FakeCard):
 class Ntag215(FakeCard):
     """NTAG215 (Type 2): 135 pages of 4 bytes, CC at page 3, 504 bytes user memory."""
 
-    PAGES = 135
+    PAGE_COUNT = 135
 
     def __init__(self, uid: bytes | None = None, *, pages: list[bytes] | None = None):
         uid = bytes(uid) if uid else bytes.fromhex("04a1b2c3d4e580")
@@ -266,12 +266,12 @@ class Ntag215(FakeCard):
         if pages is None:
             bcc0 = 0x88 ^ uid[0] ^ uid[1] ^ uid[2]
             bcc1 = uid[3] ^ uid[4] ^ uid[5] ^ uid[6]
-            pages = [bytes(4)] * self.PAGES
+            pages = [bytes(4)] * self.PAGE_COUNT
             pages[0] = uid[0:3] + bytes([bcc0])
             pages[1] = uid[3:7]
             pages[2] = bytes([bcc1, 0x48, 0x00, 0x00])
             pages[3] = bytes.fromhex("e1103e00")
-        if len(pages) != self.PAGES or any(len(p) != 4 for p in pages):
+        if len(pages) != self.PAGE_COUNT or any(len(p) != 4 for p in pages):
             raise ValueError("NTAG215 needs 135 pages of 4 bytes")
         self.pages = [bytes(p) for p in pages]
 
@@ -281,14 +281,14 @@ class Ntag215(FakeCard):
             return SW_BAD_INS
         if ins == 0xB0:
             length = le or 16
-            if p2 >= self.PAGES:
+            if p2 >= self.PAGE_COUNT:
                 return SW_DENIED
-            out = b"".join(self.pages[(p2 + i) % self.PAGES] for i in range((length + 3) // 4))
+            out = b"".join(self.pages[(p2 + i) % self.PAGE_COUNT] for i in range((length + 3) // 4))
             return out[:length] + SW_OK
         if ins == 0xD6:
             if len(data) != 4:
                 return SW_WRONG_LEN
-            if p2 < 3 or p2 >= self.PAGES:
+            if p2 < 3 or p2 >= self.PAGE_COUNT:
                 return SW_DENIED
             self.pages[p2] = bytes(data)
             return SW_OK
@@ -381,7 +381,7 @@ class Type4Tag(FakeCard):
             return SW_OK
         return SW_BAD_INS
 
-    def _select(self, p1: int, p2: int, data: bytes) -> bytes:
+    def _select(self, p1: int, _p2: int, data: bytes) -> bytes:
         if p1 == 0x04:
             if data == NDEF_AID:
                 self.app_selected = True

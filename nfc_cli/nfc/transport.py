@@ -29,6 +29,8 @@ from nfc_cli.nfc.errors import (
     UsbUnavailable,
 )
 
+_REPLUG = "replug the reader and retry"
+
 VENDOR_ID = 0x072F
 PRODUCT_ID = 0x2303
 INTERFACE = 0
@@ -114,7 +116,7 @@ def build_message(mtype: int, seq: int, data: bytes = b"", params=(0, 0, 0)) -> 
 def parse_header(raw: bytes) -> tuple[int, int, int, int, int, int, int]:
     """(mtype, length, slot, seq, status, error, specific) of an RDR_to_PC message."""
     if len(raw) < HEADER.size:
-        raise NfcError(f"short CCID response ({len(raw)} bytes)", "replug the reader and retry")
+        raise NfcError(f"short CCID response ({len(raw)} bytes)", _REPLUG)
     return HEADER.unpack(raw[: HEADER.size])
 
 
@@ -130,8 +132,8 @@ def map_usb_error(exc: BaseException) -> NfcError:
     if code in (_errno.ENODEV, _errno.ENOENT):
         return ReaderNotFound(f"reader disappeared: {exc}")
     if code == _errno.ETIMEDOUT:
-        return NfcError(f"reader timed out: {exc}", "replug the reader and retry")
-    return NfcError(f"USB error: {exc}", "replug the reader and retry; re-run with --trace")
+        return NfcError(f"reader timed out: {exc}", _REPLUG)
+    return NfcError(f"USB error: {exc}", f"{_REPLUG}; re-run with --trace")
 
 
 def select_device(devices: list[Any], reader: int | str | None) -> Any:
@@ -351,9 +353,7 @@ class UsbCcidTransport:
             if rseq != seq or mtype != expected:
                 stale += 1
                 if stale > self._max_stale:
-                    raise NfcError(
-                        "reader responses out of sequence", "replug the reader and retry"
-                    )
+                    raise NfcError("reader responses out of sequence", _REPLUG)
                 continue
             resp = CcidResponse(
                 mtype, rseq, status, error, specific, raw[HEADER.size : HEADER.size + length]
