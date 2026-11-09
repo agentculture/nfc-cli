@@ -141,7 +141,8 @@ class AppState:
             reader.update(connected=True, error=exc.message)
         except NfcError as exc:
             reader["error"] = exc.message
-        except Exception as exc:  # noqa: BLE001 - never leak a traceback to the UI
+        except Exception as exc:  # noqa: BLE001
+            # never leak a traceback to the UI
             reader["error"] = f"{type(exc).__name__}: {exc}"
         finally:
             closer = getattr(t, "close", None)
@@ -331,7 +332,8 @@ class Handler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length) if length else b""
         try:
             result = self._run_verb(verb, raw)
-        except Exception as exc:  # noqa: BLE001 - mapped to a clean error, never a traceback
+        except Exception as exc:  # noqa: BLE001
+            # map every error to a clean body; never leak a traceback
             return self._handle_verb_error(exc)
         self._json(200, {"ok": True, "result": result})
 
