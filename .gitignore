@@ -239,3 +239,13 @@ skills.local.yaml
 # .qwen/settings.json.example to .qwen/settings.json locally, never commit it.
 .qwen/settings.json
 
+# devague working state (not committed by default)
+.devague/questions/
+
+.devague/reviews/
+
+# Web console (web/) — Node deps and build output
+web/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/

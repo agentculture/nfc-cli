@@ -6,11 +6,15 @@ on:
     paths:
       - "pyproject.toml"
       - "nfc_cli/**"
+      - "web/**"
+      - "hatch_build.py"
   pull_request:
     branches: [main]
     paths:
       - "pyproject.toml"
       - "nfc_cli/**"
+      - "web/**"
+      - "hatch_build.py"
 
 jobs:
   test:
@@ -20,11 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
       - uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4
 
       - run: uv python install 3.12
 
-      - run: uv sync
+      - run: uv sync --locked
 
       - run: uv run pytest -n auto -v
 
@@ -41,11 +49,15 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
       - uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4
 
       - run: uv python install 3.12
 
-      - run: uv sync
+      - run: uv sync --locked
 
       - name: Set dev version
         run: |
@@ -76,11 +88,15 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
       - uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4
 
       - run: uv python install 3.12
 
-      - run: uv sync
+      - run: uv sync --locked
 
       - name: Build and publish to PyPI
         run: |

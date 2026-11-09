@@ -5,15 +5,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this project is
 
 **nfc-cli** is an AgentCulture mesh agent whose purpose is to **control NFC
-reader-writers via USB**. It was scaffolded from `culture-agent-template`, so
-today the repo contains only the template baseline: an agent-first CLI
-(identity/introspection verbs), a mesh identity, the vendored guildmaster skill
-kit, and a build/deploy pipeline. **No NFC functionality exists yet** — no
-reader/tag code, no hardware dependency. Several strings still describe the
-repo as "a clonable template" (the parser `description` in
-`nfc_cli/cli/__init__.py`, `_ROOT` in `nfc_cli/explain/catalog.py`, the
-`README.md` feature list); update them as real NFC features land, and update
-this section once NFC code exists.
+reader-writers via USB**. **Status: implemented.** It drives an ACS ACR1552
+over raw USB CCID (no PC/SC) and exposes one verb registry (`nfc_cli/registry.py`,
+`nfc_cli/verbs.py`) three ways:
+
+- **CLI** — `reader` (`list`, `info`), `tag` (`info`, `uid`, `wait`, `read`,
+  `write`, `dump`, `restore`, `apdu`) and `ndef` (`read`, `write`, `erase`,
+  `format`) nouns, plus the identity/introspection verbs. Flags: `--json`,
+  `--trace`, `--reader INDEX|BUS:ADDR`; mutating verbs are a dry-run unless
+  `--apply`, and sector trailers/block 0 need `--include-trailers`.
+- **MCP** — `nfc-cli mcp` (stdio; extra `nfc-cli[mcp]`); tools are `noun_verb`.
+  Config: `{"mcpServers": {"nfc-cli": {"command": "nfc-cli", "args": ["mcp"]}}}`.
+- **Web console** — `nfc-cli ui serve` (default 127.0.0.1:8770; `--fake
+  SCENARIO`, `--bind-public`); install secret in `$HOME/.config/nfc-cli/web-secret`.
+
+Optional extras: `usb` (pyusb), `mcp`, `all`; the base runtime has no
+dependencies. State: snapshots in `$HOME/.local/share/nfc-cli/snapshots`, write
+journals and `audit.log` in `$HOME/.local/state/nfc-cli`. Setting
+`NFC_CLI_FAKE=x3` runs the CLI against a simulated tag (use it, with
+`XDG_STATE_HOME`/`XDG_DATA_HOME` pointed at a throwaway dir, for any testing).
+The repo was scaffolded from `culture-agent-template`, hence the agent-first
+identity CLI, mesh identity, skill kit and pipeline. Details: `docs/hardware.md`.
 
 ### Hardware context (snapshot from 2026-11-08 — re-verify before relying on it)
 
@@ -23,11 +35,21 @@ Re-check with `lsusb`, `cat /sys/firmware/devicetree/base/compatible`, and
 - The dev host is an Arduino **VENTUNO Q** board (`arduino,monza`, Linux/aarch64).
   The CLI runs on the Linux side as an ordinary Python package; it is not an
   Arduino App and does not use `arduino-app-cli`, Bricks, or the Router Bridge.
-- Attached reader: **ACS ACR1552** (`072f:2303`, a CCID/PC/SC-class reader).
-- Not installed at the time: `pcscd`, `pcsc_scan`, `pyscard` (`smartcard`).
-  The `arduino` user is not root. Adding a runtime dependency would be the
-  first one (`dependencies = []` in `pyproject.toml` today) — a deliberate
-  break from the template's zero-dependency runtime.
+- Attached reader: **ACS ACR1552** (`072f:2303`), firmware `ACR1552 R FW
+  1.06.02`, factory polling type `07 05`. Accessed over raw USB CCID, so
+  `pcscd`/`pyscard` are not needed (and were not installed).
+- Access is via systemd-logind `uaccess` (udev tags
+  `:security-device:seat:systemd:uaccess:`), i.e. tied to an active local seat
+  session. Headless/SSH/service use needs `docs/udev/60-nfc-cli-acr1552.rules`
+  (group `plugdev`, mode 0660; install steps in `docs/hardware.md`).
+- Target tag: **Xteink X3 NFC**, passive MIFARE Classic 1K, UID `cb30c560`,
+  factory blank, keys `FFFFFFFFFFFF`, block-0 manufacturer bytes `bcdefghi`
+  (clone signature). RF coupling is weak (about 18 s of repositioning once):
+  hold it flat and still and use `--wait`. The user's transparent sticker is the
+  same chip family (UID `3d100a1e`); their card and "spot" sticker were
+  invisible at 13.56 MHz (likely 125 kHz/UHF — the ACR1552 cannot read those).
+  iPhones read the X3's Classic tag unreliably; Android works.
+- The `arduino` user is not root.
 
 ## Commands
 
@@ -42,6 +64,7 @@ uv run black --check nfc_cli tests
 uv run isort --check-only nfc_cli tests
 uv run flake8 nfc_cli tests
 uv run bandit -c pyproject.toml -r nfc_cli
+uv run nfc-cli doctor                     # identity invariants
 npm install -g markdownlint-cli2@0.21.0   # not in the uv dev group; CI pins this version
 markdownlint-cli2 "**/*.md" "#node_modules" "#.local" "#.claude/skills" "#.teken"
 python3 scripts/scan-secrets.py           # committed secrets / non-localhost URLs in JSON config
@@ -63,7 +86,7 @@ in CI:
 
 - `cli/__init__.py` builds an argparse tree; each verb/noun module in
   `cli/_commands/` exposes `register(sub)` and sets `func` on its subparser.
-  New noun groups (e.g. a future `reader` / `tag` group) are registered in
+  Noun groups (`reader`, `tag`, `ndef`, `mcp`, `ui`) are registered in
   `_build_parser()` next to the existing ones.
 - Handlers return `None`/`int` or raise `CliError(code, message, remediation)`
   (`cli/_errors.py`). `_dispatch` wraps any other exception into a `CliError`

@@ -5,6 +5,108 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.8] - 2026-11-09
+
+### Changed
+
+- Refactored the ten functions SonarCloud flagged for cognitive complexity
+  (`ndef.encode_message`/`decode_message`/`tlv_unwrap`, `ops._read_all`/`raw_apdu`,
+  `fake._update`/`transmit`, `web.server.do_POST`, `cli._nfcgroup._lines`,
+  `explain.catalog._registry_entries`) by extracting focused helpers. Behaviour
+  is unchanged (457 tests pass); each function is now under the complexity
+  threshold.
+
+### Added
+
+- CI gate: `scripts/sonar-pr-issues.py` fails a pull request that has any
+  unresolved (OPEN or CONFIRMED) SonarCloud issue, not just ones that turn the
+  quality gate red. The SonarCloud quality gate stays green with open code
+  smells on new code, so this stricter gate waits for the PR's head-commit
+  analysis and lists every unresolved issue; ACCEPTED and FALSE_POSITIVE issues
+  (resolved by a person) pass. Ported verbatim from culture-rules (the standard
+  CI), with `tests/test_sonar_pr_issues.py`. Wired into the `test` job's
+  `SonarCloud unresolved issues` step (PRs only, skipped without `SONAR_TOKEN`).
+
+## [0.12.7] - 2026-11-08
+
+### Changed
+
+- CI installs Python dependencies with `uv sync --locked` (from the committed `uv.lock`) in both workflows, for deterministic, supply-chain-safe builds. (SonarCloud githubactions:S8544)
+
+### Fixed
+
+- Reworded the 0.12.6 changelog entry so it no longer quotes the very per-user path literals the portability lint scans for; that self-reference was the only non-waived finding failing the harness-smoke `steward doctor` gate. (CI)
+
+## [0.12.6] - 2026-11-08
+
+### Fixed
+
+- Committed docs and the web e2e fixtures no longer hard-code absolute home-directory paths or per-user hidden-directory paths; they use portable `$HOME`-relative forms, clearing the portability lint in the harness-smoke gate. (code review / CI)
+
+## [0.12.5] - 2026-11-08
+
+### Fixed
+
+- The web console's static-file handler strips `..`/absolute segments and re-checks containment on the resolved path, so a crafted request can never read outside the built `dist` directory. (code review / SonarCloud)
+
+## [0.12.4] - 2026-11-08
+
+### Fixed
+
+- The web console sets the `agent-state` JSON via the script node's `textContent` instead of `dangerouslySetInnerHTML`, which is XSS-safe at the source and clears the SonarCloud security finding. (code review)
+
+## [0.12.3] - 2026-11-08
+
+### Fixed
+
+- Dump/snapshot/journal files are written atomically (temp file + fsync + replace), so an interrupted save never truncates an existing file. (code review)
+- Binary dumps of 4-byte-page tags (Ultralight/NTAG, ISO 15693) round-trip at the right page size instead of being split into 16-byte blocks. (code review)
+- A raw NDEF message with bytes after its final record is refused before being written. (code review)
+- Over MCP and the web API a `tag dump` output path is confined to the dumps directory, so a remote caller cannot overwrite an arbitrary file. (code review)
+- `tag apdu`: a raw `FF D6` to a Type 2 (Ultralight/NTAG) lock / capability-container page is refused without `--include-trailers`, so a raw sequence cannot permanently lock those tags by accident. (code review)
+- Web console: revealing keys or reading NDEF no longer applies a stale response after the tag is swapped, so one tag's keys/records can't appear under another. (code review)
+
+## [0.12.2] - 2026-11-08
+
+### Fixed
+
+- The web console no longer embeds the write secret in the page when bound to a public address (`--bind-public`); there the operator is given the secret on the terminal instead, so a network client that loads the page cannot read it and defeat the guard. (code review)
+- A write never proceeds on an incomplete pre-write snapshot: if any sector cannot be read, the write is refused rather than saved with an image that could not undo it. (code review)
+- Mutating verbs accept `expect_uid`; the web console sends the previewed tag's UID on Apply, and the server refuses the write if a different tag is present, so a tag swapped between preview and Apply is never written. (code review)
+
+## [0.12.1] - 2026-11-08
+
+### Fixed
+
+- `tag magic-check` now honours `--key`/`--key-type` and probes block 0 with whichever key opened sector 0, instead of only trying the default dictionary and a hardcoded key A (a tag with a non-default sector-0 key could not be probed). (code review)
+- `tag dump --resume` loads a binary partial dump in the format it was saved, so `--format bin` dumps are resumable. (code review)
+- After a transient write mute, the Classic write recovery re-authenticates with a key the block's access bits actually allow, instead of an unconditional key B (which would fail, or re-mute, a key-A-only block/trailer). (code review)
+- `nfc-cli explain`/overview root text lists the `tag magic-check` verb. (code review)
+
+## [0.12.0] - 2026-11-08
+
+### Added
+
+- `tag magic-check`: non-destructively report whether a MIFARE Classic tag's UID block (block 0) can be rewritten, by writing block 0's own bytes back to itself (a genuine chip refuses; a UID-rewritable "CUID"/gen2 card accepts). Exposed on the CLI, as the MCP tool `tag_magic-check`, and at `POST /api/tag/magic-check`. First step of the UID-clone capability; the guarded block-0 write is tracked in issue #2.
+
+### Fixed
+
+- Classic writes now choose the write key from the sector's access bits, so NFC-Forum-formatted sectors (which reserve data writes for key B) are written with key B and never refused. A refused write that halts the chip (the ACR1552 then reports the card mute) is recovered by a retried power-cycle instead of aborting. Found during live validation on real hardware.
+- `tag restore --resume` no longer silently skips trailer/block-0 writes that were pending from an interrupted `--include-trailers` restore; it refuses with the exact command to finish them.
+
+## [0.11.0] - 2026-11-08
+
+### Added
+
+- NFC functionality: `reader` (`list`, `info`), `tag` (`info`, `uid`, `wait`, `read`, `write`, `dump`, `restore`, `apdu`) and `ndef` (`read`, `write`, `erase`, `format`) commands driving an ACS ACR1552 over raw USB CCID. Writes are a dry-run unless `--apply`; sector trailers need `--include-trailers`.
+- MCP server (`nfc-cli mcp`) with `noun_verb` tools, and a local web console (`nfc-cli ui serve`).
+- First optional dependency extras: `usb` (pyusb), `mcp`, and `all`. The base runtime remains dependency-free.
+- `docs/hardware.md` (tested setup, uaccess/seat caveat, 125 kHz/UHF tags, weak-coupling tips) and `docs/udev/60-nfc-cli-acr1552.rules` for headless reader access.
+
+### Changed
+
+- README and all four harness prompt files (`CLAUDE.md`, `AGENTS.colleague.md`, `AGENTS.override.md` + `.pi/SYSTEM.md`, `QWEN.md`) now describe the implemented NFC CLI, MCP server and web console. Before this release the repo was the template baseline only (identity/introspection verbs, no NFC code, no dependencies); that baseline is retained underneath.
+
 ## [0.10.1] - 2026-11-08
 
 ### Changed

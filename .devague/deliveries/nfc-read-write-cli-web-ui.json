@@ -1,0 +1,67 @@
+{
+  "plan_slug": "nfc-read-write-cli-web-ui",
+  "schema_version": 2,
+  "created": "2026-11-08T17:22:33Z",
+  "updated": "2026-11-08T19:53:31Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "t8 and t9 met their 'against FakeTransport' acceptance criteria with their own in-test fakes (tests/_classic_fake.py, fakes inside tests/test_families.py) because FakeTransport (t7) was built in the same wave; follow-up: after t7 merges, add tests running classic.py and families.py against nfc_cli.nfc.fake.FakeTransport scenarios before t11 starts",
+      "task_ref": "t8",
+      "reason": "plan sequencing gap: t8/t9 should have depended on t7; caught by the main agent at wave-2 launch",
+      "affects": [
+        "t9",
+        "t11"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "needs-follow-up",
+      "seq": 1
+    },
+    {
+      "id": "d2",
+      "what": "Bring card cloning back into scope during live validation: build a magic-card detection probe and test it on the transparent sticker (UID 3d100a1e); if the sticker is UID-changeable, add a guarded block-0/UID write (e.g. clone UID b50d9ed3 from the user's source tag) behind --apply plus an explicit block-0 flag; the X3 only after the sticker succeeds",
+      "task_ref": "t18",
+      "reason": "User approved 2026-11-08 after the live scan: their source tag (UID b50d9ed3) carries no data, so imprinting 'the same tag' means copying its UID; the sticker and X3 both carry the clone-card signature 'bcdefghi'. Previously parked as frame v3 / plan risk r5 follow-up",
+      "affects": [
+        "t11",
+        "t12",
+        "t13",
+        "t14"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "risky",
+      "seq": 2
+    },
+    {
+      "id": "d3",
+      "what": "t18 (planned as 'no code') changed production code: three fixes from live findings \u2014 32ff9e9 + 84f6d5d (choose Classic write key from access bits; recover a muted card by power cycle) and 78a0142 (resume refuses to silently skip pending trailer writes), each with regression tests",
+      "task_ref": "t18",
+      "reason": "live validation on the real ACR1552 exposed defects in t11's write path (refused write halts the chip and the reader drops it; resume dropped include_trailers) that blocked t18's restore acceptance criterion",
+      "affects": [
+        "t11"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 3
+    },
+    {
+      "id": "d4",
+      "what": "Cloning capability (d2) resolved: the magic-check detection shipped and ran live; the transparent sticker (UID 3d100a1e, 'bcdefghi' signature) reports block0_writable=no \u2014 block 0 is read-only to a standard UPDATE BINARY. These clone cards are NOT UID-writable via the standard-APDU path, so the guarded 'tag write --block0' step was NOT built (nothing to write to). The only remaining route is a raw-frame gen1a backdoor, deliberately not implemented.",
+      "task_ref": "t18",
+      "reason": "live hardware result 2026-11-08: detection works; the user's magic-signature cards are not standard-writable, so UID cloning is not possible with this reader via the safe path",
+      "affects": [
+        "t11"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 4
+    }
+  ],
+  "evidence": [],
+  "deltas": [],
+  "supersessions": []
+}

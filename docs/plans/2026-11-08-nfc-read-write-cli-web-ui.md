@@ -1,0 +1,202 @@
+# Build Plan — nfc read-write cli + web ui
+
+slug: `nfc-read-write-cli-web-ui` · status: `exported` · from frame: `nfc-read-write-cli-web-ui`
+
+> nfc-cli reads and writes every NFC tag family through the attached ACS ACR1552 over raw USB CCID — no pcscd, no root — so the operator can dump an Xteink X3's NFC memory and write it back, from an agent-first CLI or a beautiful local web UI built to Culture standards
+
+## Tasks
+
+### t1 — Transport: CCID over pyusb with lock, trace and typed errors (`nfc_cli`/nfc/transport.py, `nfc_cli`/nfc/errors.py)
+
+- instruction: Port the framing from the session probes (CCID header struct '<BIBB3B', bulk EP 0x01 out / 0x81 in, interface 0, vendor 072f product 2303; select device by --reader index or bus:addr). Import usb lazily inside UsbCcidTransport.`__init__` so the module imports without pyusb. Keep it pure: no CLI imports.
+- covers: c2, h2, c43, h35, c49, h40, c4, h3
+- acceptance:
+  - tests/`test_transport.py` drives `PC_to_RDR_XfrBlock`, `PC_to_RDR_Escape`, GetSlotStatus, IccPowerOn/Off framing against a fake USB endpoint, including bStatus time-extension (bits 7:6 = 2) retries and sequence-number matching
+  - a Transport protocol (`power_on` -> ATR bytes, transmit(apdu) -> (data, sw1sw2), escape(cmd), present() -> bool, close) is defined and UsbCcidTransport implements it; nothing outside transport.py imports usb
+  - claim is per-operation via a context manager; an advisory lock file under `XDG_RUNTIME_DIR` (fallback tmp dir) records pid + argv; a second holder raises ReaderBusy naming the holder; USBError errno 16 also maps to ReaderBusy
+  - errors.py defines NfcError subclasses ReaderNotFound, ReaderPermission (EACCES, hint names udev rule docs), ReaderBusy, NoCard, CardRemoved, AuthFailed, ApduError(sw), each with a remediation string; no smartcard/pcsc import anywhere
+  - trace hook: when enabled every exchange is written to a stream as direction, hex, SW, ms; bytes following FF82 load-key APDUs are masked as \*\* in trace output (test asserts no key hex appears)
+  - `nfc_cli`/nfc/`__init__.py`, if this task creates it, is an empty file (byte-identical across parallel wave-0 tasks)
+
+### t2 — ATR parser and tag-family detection (`nfc_cli`/nfc/atr.py)
+
+- instruction: PC/SC Part 3 supplemental document layout: 3B 8F 80 01 80 4F 0C A0 00 00 03 06 SS NN NN 00 00 00 00 TCK. Return a frozen dataclass. Pure function, no I/O.
+- covers: c34, h29, h41
+- acceptance:
+  - tests/`test_atr.py`: parse() of 3b8f8001804f0ca000000306030001000000006a returns standard ISO14443A-3, `card_name` 0x0001, family `classic_1k` (the live X3 ATR)
+  - recorded/manual ATRs map to families: Classic 4K 0002, Mini 0026, Ultralight/NTAG 0003, Ultralight C 003A, Topaz 0030, FeliCa 003B/0014/0015, ISO15693 (SS 0B or 07 per PC/SC part 3), Picopass SS 06 card names 001B-001D, SRIX, and a non-RID ATR -> `iso14443_4` (Type 4 candidate) carrying historical bytes
+  - the ATR TCK checksum is validated and a bad checksum yields family unknown rather than an exception
+  - `nfc_cli`/nfc/`__init__.py`, if this task creates it, is an empty file (byte-identical across parallel wave-0 tasks)
+
+### t3 — NDEF codec + MIFARE Classic NDEF/MAD format template (`nfc_cli`/nfc/ndef.py)
+
+- instruction: Pure module, no I/O. Compute the MAD CRC-8 (poly 0x1D, init 0xC7) as in NXP AN10787. Access bits for NDEF sectors: 7F 07 88 with GPB 0x40; sector 0: 78 77 88 with GPB 0xC1 — verify against the access-bit parity rule in a test rather than trusting constants.
+- acceptance:
+  - tests/`test_ndef.py`: encode/decode round-trips Well-Known Text (lang + UTF-8), URI with prefix-code compression (e.g. <https://www>. -> 0x02), MIME and raw records, multi-record messages with MB/ME/SR/IL flags
+  - TLV wrap/unwrap (03 NDEF, FE terminator, 3-byte long length) and Type 2 Capability Container helpers
+  - `classic_format_template`() returns MAD1 sector 0 contents (key A A0A1A2A3A4A5, MAD CRC computed) and NDEF sector trailers (key A D3F7D3F7D3F7, NFC-Forum access bits) and `validate_access_bits`() rejects any trailer whose access-bit inverted copies do not match (test with one flipped bit)
+  - `nfc_cli`/nfc/`__init__.py`, if this task creates it, is an empty file (byte-identical across parallel wave-0 tasks)
+
+### t4 — Dump file format, key masking, snapshots and write journal (`nfc_cli`/nfc/dumpfile.py, `nfc_cli`/nfc/journal.py)
+
+- instruction: Data-only modules: no transport imports. Journal is append-only JSON lines with fsync per record.
+- covers: c47, h38
+- acceptance:
+  - tests/`test_dumpfile.py`: Dump(atr, uid, family, blocks/pages/sectors hex, `keys_used`) round-trips JSON and --format bin (raw bytes); files are created with mode 0600 even under a permissive umask
+  - `mask_keys`() replaces key bytes in trailers and `keys_used` with asterisks; `to_dict`(`include_keys`=False) is the default and contains no key hex
+  - `snapshot_path`(uid) lives under `XDG_DATA_HOME`/nfc-cli/snapshots (fallback $HOME/.local/share), never inside the current git repo
+  - tests/`test_journal.py`: Journal appends per-block records (block, old, new, written, verified) atomically, reloads, and reports pending blocks for resume
+  - `nfc_cli`/nfc/`__init__.py`, if this task creates it, is an empty file (byte-identical across parallel wave-0 tasks)
+
+### t5 — Verb registry and Context (`nfc_cli`/registry.py)
+
+- instruction: Model on culture-rules `culture_rules`/cli/registry.py and `culture_rules`/mcp/tools.py (cite, don't import). Boolean params must be JSON booleans when called via MCP/API; strings like 'false' are refused.
+- covers: c29, h24
+- acceptance:
+  - tests/`test_registry.py`: Verb(noun, verb, summary, params JSON-schema, mutating, handler) registers into REGISTRY; `tool_name` is `noun_verb`; `params_schema`() is valid JSON Schema with apply added only for mutating verbs
+  - Context carries apply (bool), trace stream, transport factory, `include_keys`; handlers receive Context and return JSON-serialisable dicts
+  - helpers build an argparse subparser and an MCP tool spec and an /api/ route name from the same Verb (single source asserted by a test that compares all three for a sample verb)
+
+### t6 — Packaging: optional extras, wheel build hook, CI/publish with Node (pyproject.toml, uv.lock, `hatch_build.py`, .github/workflows/\*.yml)
+
+- instruction: Cite embodiment `hatch_build.py` (staleness check, `NPM_CI_TIMEOUT_S`) — copy, adapt, credit in a header comment. Keep the existing lint job untouched except adding Node. Do not bump the version here (the docs task does).
+- covers: c5, h4, c12, h10, c20, h17
+- acceptance:
+  - pyproject: dependencies = \[\] stays; extras usb = \[pyusb>=1.2\], mcp = \[mcp>=1.2,<2\], all = both; the earlier uncommitted base-dependency pyusb change is reverted
+  - tests/`test_zero_deps.py` pins the base runtime dependency set to empty and asserts importing `nfc_cli` and running whoami works with usb/mcp import blocked
+  - `hatch_build.py` runs npm ci && npm run build in web/ only when web/ exists and dist is stale (bounded timeouts, named failure), skips cleanly when `NFC_CLI_SKIP_WEB_BUILD`=1; dist is force-included as `nfc_cli`/web/dist; tests/`test_wheel_ships_ui.py` builds a wheel (skipped when npm absent) and asserts `nfc_cli`/web/dist/index.html is inside
+  - tests.yml and publish.yml set up Node 22 before uv sync/uv build and add a web job running npm ci, typecheck, vitest and playwright e2e
+
+### t7 — Fake reader and card simulators for hardware-free tests (`nfc_cli`/nfc/fake.py)
+
+- instruction: Lives in the package (not tests/) so 'nfc-cli ui serve --fake' and the frontend dev server can use it. Respond to the same pseudo-APDUs the ACR1552 uses: FF CA (UID), FF 82 (load key), FF 86 (auth), FF B0 (read), FF D6 (update).
+- depends on: t1
+- covers: c8
+- acceptance:
+  - FakeTransport implements the t1 Transport protocol and simulates MIFARE Classic 1K (keys, trailers, access bits, auth state, block 0 read-only unless magic=True), NTAG215 Type 2 (pages, CC), ISO15693 (4-byte blocks), and a Type 4 tag answering SELECT/READ BINARY/UPDATE BINARY for the NDEF app
+  - fault injection: `card_removed_after`(`n_apdus`), `auth_fail`, sw override, busy — used by later tests; tests/`test_fake.py` exercises each
+  - fake.`load_scenario`('x3') reproduces the live X3 (ATR 3b8f...6a, UID cb30c560, block 0 cb30c5605e0804006263646566676869, blank sectors, transport trailers)
+
+### t8 — MIFARE Classic operations (`nfc_cli`/nfc/classic.py)
+
+- instruction: Pseudo-APDUs: FF 82 00 00 06 key (load to slot 0), FF 86 00 00 05 01 00 block 60|61 00, FF B0 00 block 10, FF D6 00 block 10 data. After a failed auth power-cycle (IccPowerOff/On) before trying the next key — the live probe needed this.
+- depends on: t1, t3, t2
+- covers: c22, h18
+- acceptance:
+  - tests/`test_classic.py` against FakeTransport: authenticate(sector, key, A|B), `read_block`, `write_block`, `read_sector`; key dictionary fallback tries FFFFFFFFFFFF, A0A1A2A3A4A5, D3F7D3F7D3F7, 000000000000 then --keys-file entries, re-selecting the card after a failed auth
+  - `write_block` refuses trailer blocks and block 0 unless `allow_trailer`=True, and with `allow_trailer` it calls ndef.`validate_access_bits` first and refuses invalid trailers with zero write APDUs
+  - 4K layout handled (32x4 + 8x16 blocks) via `sector_of`(block) / `first_block`(sector) helpers with unit tests
+
+### t9 — Other tag families: Type 2, ISO15693, Type 4, FeliCa, Topaz, SRIX/Picopass/CTS block access (`nfc_cli`/nfc/families.py)
+
+- instruction: Keep each family a small class in one file to stay file-disjoint from classic.py. Manual text is at the session scratchpad acs/acr1552.txt (re-extract with pdftotext from the ACS site if missing).
+- depends on: t1, t3, t2
+- covers: c34, h41
+- acceptance:
+  - tests/`test_families.py` against FakeTransport: Type 2 page read (FF B0 00 page 10 = 4 pages) / page write (FF D6 00 page 04) with memory size from CC; ISO15693 block read/write with block size discovery; Type 4 NDEF read/write via SELECT D2760000850101, CC E103, NDEF file
+  - FeliCa, Topaz, SRIX, Picopass and CTS expose read-only block reads using the address ranges in ACR1552 manual 1.09 (Read Binary table); writes for these families raise UnsupportedOperation with a clear message rather than guessing
+  - a `family_ops`(family) dispatcher returns the right ops object for every family atr.py can emit
+
+### t10 — Reader info and safe reader configuration (`nfc_cli`/nfc/reader.py)
+
+- instruction: Lesson from lapse l1: the restore must not depend on the caller's handle — release, re-claim, restore, read back.
+- depends on: t1
+- covers: c48, h39
+- acceptance:
+  - tests/`test_reader.py`: firmware() sends escape E000001800 and decodes ASCII after E1000000 + len; `polling_type`() reads E000012000 -> named protocol set; `slot_status`() decodes present/absent
+  - `with_polling_type`(mask) is a context manager that snapshots, sets, and on exit restores in a fresh claim then verifies by read-back, raising if verification fails (test simulates a busy first restore)
+  - a test scans reader.py source/AST and the escape builder to assert no command starting E0 00 00 9 (keyboard/operating mode) can be constructed
+
+### t11 — High-level operations + verb registrations: dry-run diff, snapshot, journaled read-back writes, resume (`nfc_cli`/nfc/ops.py, `nfc_cli`/verbs.py)
+
+- instruction: This is the one module that composes transport/classic/families/ndef/dumpfile/journal. Return plain dicts so registry handlers can pass them straight to CLI/MCP/API.
+- depends on: t2, t3, t4, t7, t8, t9, t5, t10
+- covers: c13, h11, c23, h19, c44, h36, c45, h37, c27, h22
+- acceptance:
+  - tests/`test_ops.py`: info, read, dump (per-sector resume after injected card removal), write, restore, `ndef_read`, `ndef_write`, `ndef_erase`, `ndef_format`, wait(timeout) all run against FakeTransport
+  - every mutating op with apply=False sends zero write APDUs (assert via FakeTransport counters) and returns a per-block diff; with apply=True it writes a 0600 snapshot before the first write APDU and aborts with zero writes if the snapshot fails
+  - restore skips trailers and block 0 (listed as skipped in the diff) unless `include_trailers`=True; `ndef_format` is the only path writing trailers and only via ndef.`classic_format_template`
+  - each write is followed by read-back compare and journaled; an injected dropout leaves a journal whose pending list --resume completes to byte-identical read-back
+  - `nfc_cli`/verbs.py registers every verb in the c35 surface (reader list|info; tag info|uid|wait|read|write|dump|restore|apdu; ndef read|write|erase|format) into REGISTRY with params schemas, mutating flags and handlers that call ops/reader and raise only NfcError; tests/`test_verbs.py` checks the registered set
+
+### t12 — CLI wiring: argparse noun groups reader/tag/ndef built from REGISTRY, plus 'mcp' and 'ui serve' entry points (lazy imports), NfcError->CliError mapping, explain/learn/overview (`nfc_cli`/cli/`__init__.py`, `nfc_cli`/cli/`_commands`/{reader,tag,ndef,mcp,ui}.py, `nfc_cli`/explain/catalog.py, learn.py, overview.py)
+
+- instruction: Handlers catch NfcError and raise CliError(`EXIT_ENV_ERROR`, msg, remediation) — never let library exceptions reach `_dispatch`. Missing usb extra -> exit 2 'pip install nfc-cli\[usb\]'.
+- depends on: t5, t10, t11
+- covers: c6, h5, c35, h30, c7, h6, c30, h25
+- acceptance:
+  - argparse subcommands for reader/tag/ndef are generated from REGISTRY (no hand-duplicated verb list); 'nfc-cli mcp' lazily calls `nfc_cli`.mcp.server.`run_stdio` and 'nfc-cli ui serve' lazily calls `nfc_cli`.web.server.serve; each noun (reader, tag, ndef, ui) has overview
+  - every verb accepts --json, --trace, --reader, --wait; mutating verbs accept --apply and the trailer flags; teken cli doctor . --strict passes
+  - tests/`test_cli_nfc.py` (FakeTransport injected via env `NFC_CLI_FAKE`=x3) asserts each NfcError subclass becomes exit 2 with error:/hint: lines on stderr and no traceback; argparse errors stay exit 1
+  - a test enumerates the parser tree and asserts every path resolves via 'nfc-cli explain'; learn text and JSON list the new nouns plus the MCP and web UI surfaces; parser description and `_ROOT` no longer say 'clonable template'
+  - tests assert the CLI verb-path set equals the REGISTRY verb set; McpExtraMissing maps to exit 2 and BindRefused maps to exit 1, each with its hint (module stubs are fine until t13/t14 merge)
+
+### t13 — MCP server over stdio with CLI parity and trailer-flag gate (`nfc_cli`/mcp/server.py, `nfc_cli`/mcp/tools.py, tests/`test_surface_parity.py`) — exposes `run_stdio`(); CLI wiring lives in t12
+
+- instruction: Cite culture-rules `culture_rules`/mcp/server.py (low-level Server, `list_tools`/`call_tool`, ValueError -> isError). Register 'mcp' as a CLI verb that runs `run_stdio`().
+- depends on: t5, t11
+- covers: c28, h23, c54, h43
+- acceptance:
+  - tools are built from REGISTRY (`noun_verb` names, `params_schema` input schemas); tests/`test_surface_parity.py` asserts the MCP tool-name set equals the REGISTRY verb set (CLI==REGISTRY is asserted in t12, so CLI==MCP holds transitively)
+  - a mutating tool runs dry-run unless apply is exactly JSON true; string 'true' is refused; trailer-writing calls also need `include_trailers`=true or format=true, else zero write APDUs; permitted trailer writes append an audit-log line (timestamp, surface=mcp, uid, blocks)
+  - the mcp SDK is imported lazily; without the mcp extra `run_stdio`() raises McpExtraMissing carrying the 'pip install nfc-cli\[mcp\]' hint; key bytes are redacted unless `include_keys`
+
+### t14 — Local web server: static UI + /api/ from registry, loopback bind, install-secret guard (`nfc_cli`/web/server.py, `nfc_cli`/web/guard.py) — exposes serve(host, port, `bind_public`, fake); CLI wiring lives in t12
+
+- instruction: Cite embodiment embodiment/http/server.py + guard.py (`resolve_bind`, install secret, Host/Origin allow-list). Inject the secret into index.html at serve time (meta tag) so same-origin JS can send it.
+- depends on: t5, t11
+- covers: c18, h15, c19, h16
+- acceptance:
+  - ThreadingHTTPServer serves `nfc_cli`/web/dist at / (text fallback page when dist missing) and POST /api/{noun}/{verb} generated from REGISTRY, plus GET /api/state and an SSE /api/events for card present/removed
+  - serve() defaults to 127.0.0.1:8770 (avoids 8765/8791/8796/8823 used by sibling repos) with env `NFC_CLI_HOST`/`NFC_CLI_PORT`; `resolve_bind`() raises BindRefused (with hint) for a non-loopback host unless `bind_public`=True and no socket is opened; fake=True loads the x3 scenario
+  - tests/`test_web_server.py` on an ephemeral port: mutating POST without Authorization secret or with foreign Origin/Host returns 401/403 and FakeTransport records zero APDUs; secret file is 0600 under XDG config; trailer flags gate and audit log mirror MCP
+
+### t15 — Frontend shell: React 18 + Vite 6 + TS scaffold, pinned culture-design tokens, self-hosted fonts, agent-state node, a11y baseline, test harness (web/\*\*, scripts/check-culture-design.py)
+
+- instruction: Copy tokens.css (with header) from the embodiment clone at the session scratchpad (embodiment/web/src/culture-design/) — cite, don't import; copy check-culture-design.py and check-no-external-origin.mjs likewise with credit. Load the frontend-design skill before choosing the visual direction. Do not build screens yet; one placeholder route that sets `view_ready`.
+- covers: c14, h12, c25, h21, c10, h8
+- acceptance:
+  - web/ builds with npm ci && npm run build on the board (user-space Node) producing web/dist; vite dev proxies /api to 127.0.0.1:8770; dist is gitignored
+  - web/src/culture-design/tokens.css is a provenance header + verbatim copy of agentculture/org site-astro/src/styles/global.css at the pin embodiment uses (b4d939ba0aa354a5ae53065319a773e0013de698); scripts/check-culture-design.py verifies the recorded sha256 and fails on a one-byte edit (pytest test included)
+  - fonts are self-hosted via @fontsource-variable (Fraunces display, Albert Sans body); web/scripts/check-no-external-origin.mjs fails the build if dist references any external origin
+  - the root renders <script type=application/json id=agent-state> with status, `view_ready`, route, reader, card, errors; skip link, visible focus, 44px targets, prefers-reduced-motion honoured; vitest + Playwright (with @axe-core/playwright) configured, e2e serving the API by request interception
+  - docs/ui-design.md records the frontend-design direction chosen and states that only culture-design tokens are used for colour and type
+
+### t16 — Frontend screens: reader status, live card panel, sector/page memory map, dump/restore with diff preview, NDEF editor, trace drawer (web/src/screens/\*\*, web/src/api/\*\*, web/e2e/\*\*)
+
+- instruction: Keep screens in web/src/screens/\* to stay file-disjoint from the shell. Use the memory map as the centrepiece: 16 sectors x 4 blocks for Classic with trailers visually distinct and locked by default.
+- depends on: t12, t15
+- covers: c16, h13, c17, h14, c38
+- acceptance:
+  - the API client is generated from the registry: a build step (scripts/export-verbs.py) writes web/src/api/verbs.json from REGISTRY and forms for verb params render from its JSON schema
+  - mutating actions show the dry-run diff first and require an explicit Apply click; trailer-writing actions need an extra confirm toggle; key bytes are never shown unless the user reveals them
+  - card presence is announced in words (aria-live), never colour alone; agent-state reflects reader/card status and errors
+  - npm run test:e2e passes in CI against mocked API fixtures (x3 scenario, NTAG, removed-card, busy-reader) with 0 serious/critical axe violations per screen
+
+### t17 — Docs, prompt files, udev rule, version bump (README.md, CLAUDE.md, AGENTS.colleague.md, AGENTS.override.md, QWEN.md, .pi/SYSTEM.md, docs/udev/60-nfc-cli-acr1552.rules, docs/hardware.md, CHANGELOG.md, pyproject version)
+
+- instruction: Use the version-bump skill. Keep the before-state (template-only) visible in the CHANGELOG entry rather than rewriting history.
+- depends on: t12, t13, t14, t16
+- covers: c31, h26
+- acceptance:
+  - all four harness prompt files state the same purpose and current status (NFC CLI + MCP + web UI implemented; no longer 'no NFC functionality'); CLAUDE.md hardware section updated with the X3 facts and uaccess note
+  - docs/udev/60-nfc-cli-acr1552.rules grants 072f:2303 to a group for headless use and docs/hardware.md explains install, the uaccess/seat caveat, 125 kHz/UHF tags being invisible, and weak-coupling tips
+  - README documents CLI, MCP config snippet, and ui serve; version bumped minor via the version-bump skill with a CHANGELOG entry naming the first optional extras; markdownlint-cli2 passes
+
+### t18 — Live hardware validation on the board and evidence (no code; PR evidence + devague evidence records)
+
+- instruction: Ask the user before every --apply write and to reposition the X3 (weak coupling). Snapshot paths go in the PR. File devague evidence records for the obligations as each check passes.
+- depends on: t6, t17
+- covers: c1, h1, c11, h9, c24, h20, c32, h27, c33, h28, c36, h31, c37, h32, h33, h7
+- acceptance:
+  - on the VENTUNO Q with the ACR1552: tag info --wait 60 identifies the X3; tag dump reads 16/16 sectors; ndef format+write --uri then ndef read returns the same URI on the X3 and the transparent sticker; restore of the blank snapshot reads back 64/64 data blocks identical (trailers excluded)
+  - the same read runs via the MCP server (a client call to `tag_info`) and via the web UI under the playwright MCP with a screenshot; reader polling type reads 07 05 afterwards
+  - teken cli doctor . --strict, pytest -n auto (coverage >= 60%), markdownlint and the CI web job are green; outputs pasted into the PR
+
+## Risks
+
+- [unknown_nonblocking] The wheel build hook needs Node wherever a wheel is built (CI test job via uv sync, publish.yml, uv sync on the board); mitigated in t6 by a staleness check and `NFC_CLI_SKIP_WEB_BUILD` — verify CI runtime stays acceptable (task t6)
+- [unknown_nonblocking] Headless Chromium for the playwright MCP / e2e on this aarch64 board may need root-installed system libraries; CI (ubuntu-latest) is the authoritative e2e run, board-side screenshot is best-effort (task t18)
+- [unknown_nonblocking] Disabling the reader's RF-off interval might improve detection of the weakly coupled X3; try during t18 only via the snapshot/restore path (task t18)
+- [unknown_nonblocking] MIFARE Classic NFC-Forum access-bit constants in t3 are from memory of NXP AN1304/AN10787, not re-read; t3 must verify parity in tests and t18 must confirm an Android phone reads the formatted X3 (task t3)
+- [follow_up] Follow-ups outside this plan: card emulation (frame v6), cloning onto magic cards (v3), PC/SC backend (non-goal)

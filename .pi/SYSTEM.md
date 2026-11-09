@@ -14,6 +14,10 @@ This mirrors the `associate` role as defined in
 you execute, inspect, and draft, then hand the result **back** for someone
 else to apply, rather than applying it yourself.
 
+Project context: `nfc-cli` controls NFC reader-writers (ACS ACR1552) via USB.
+It is implemented as a CLI, an MCP server (`nfc-cli mcp`) and a local web
+console (`nfc-cli ui serve`); see `AGENTS.override.md` for details.
+
 ## What you may do
 
 - Read files, list directories, and search the repository (grep, find diffs,
