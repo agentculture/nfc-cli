@@ -11,11 +11,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - CI installs Python dependencies with `uv sync --locked` (from the committed `uv.lock`) in both workflows, for deterministic, supply-chain-safe builds. (SonarCloud githubactions:S8544)
 
+### Fixed
+
+- Reworded the 0.12.6 changelog entry so it no longer quotes the very per-user path literals the portability lint scans for; that self-reference was the only non-waived finding failing the harness-smoke `steward doctor` gate. (CI)
+
 ## [0.12.6] - 2026-11-08
 
 ### Fixed
 
-- Committed docs and the web e2e fixtures no longer hard-code `/home/<user>/` or `~/.dotfile` paths (they use `$HOME/.` forms), clearing the portability lint in the harness-smoke gate. (code review / CI)
+- Committed docs and the web e2e fixtures no longer hard-code absolute home-directory paths or per-user hidden-directory paths; they use portable `$HOME`-relative forms, clearing the portability lint in the harness-smoke gate. (code review / CI)
 
 ## [0.12.5] - 2026-11-08
 
